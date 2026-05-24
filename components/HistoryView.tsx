@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { format, subMonths, addMonths } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import FilterDropdown from './FilterDropdown'
@@ -20,6 +21,9 @@ type Props = {
 }
 
 export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Props) {
+  const searchParams = useSearchParams()
+  const [selectedDate, setSelectedDate] = useState<string | null>(searchParams.get('date'))
+
   // Filter state — same shape as Dashboard, INDEPENDENT from it
   const [excludedTypes, setExcludedTypes]   = useState<Set<string>>(new Set())
   const [excludedApps, setExcludedApps]     = useState<Set<string>>(new Set())
@@ -42,6 +46,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
     excludedPaidBy.size + excludedTags.size + (excludeOneTime ? 1 : 0)
 
   const filtered = useMemo(() => monthExpenses.filter(e => {
+    if (selectedDate && e.date !== selectedDate)      return false
     if (excludedTypes.has(e.expenseType))             return false
     if (excludedApps.has(e.app))                      return false
     if (excludedModes.has(e.paymentMode))             return false
@@ -49,7 +54,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
     if (e.tags.some(t => excludedTags.has(t)))        return false
     if (excludeOneTime && e.oneTime)                  return false
     return true
-  }), [monthExpenses, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
+  }), [monthExpenses, selectedDate, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -121,7 +126,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
 
       {/* Summary + sort */}
       <div className="max-w-4xl mx-auto px-4 pt-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-baseline gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm text-muted">
             {filtered.length} expense{filtered.length !== 1 ? 's' : ''}
             {filtered.length !== monthExpenses.length && (
@@ -131,6 +136,14 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
           <span className="font-bold text-accent text-base tabular-nums">
             ₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </span>
+          {selectedDate && (
+            <button
+              onClick={() => setSelectedDate(null)}
+              className="pill pill-active !text-xs !py-0.5 !px-2 flex items-center gap-1"
+            >
+              Day {selectedDate.slice(8)} <span className="opacity-70">✕</span>
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-1.5 text-xs">
           <span className="text-mutedDim">Sort</span>

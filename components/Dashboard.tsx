@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { format, subMonths, addMonths } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import OverviewCard from './cards/OverviewCard'
@@ -31,6 +32,7 @@ export default function Dashboard({
   monthStr,
   userName,
 }: Props) {
+  const router = useRouter()
   const [excludedTypes,   setExcludedTypes]   = useState<Set<string>>(new Set())
   const [excludedApps,    setExcludedApps]    = useState<Set<string>>(new Set())
   const [excludedModes,   setExcludedModes]   = useState<Set<string>>(new Set())
@@ -41,6 +43,7 @@ export default function Dashboard({
   // Desktop-only transactions sidebar
   const [sortKey, setSortKey] = useState<'date' | 'cost' | 'name'>('date')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   const [showComparison, setShowComparison] = useState(false)
 
@@ -95,15 +98,20 @@ export default function Dashboard({
     return Object.entries(byPerson).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
   }, [filtered])
 
+  const sidebarFiltered = useMemo(
+    () => selectedDate ? filtered.filter(e => e.date === selectedDate) : filtered,
+    [filtered, selectedDate]
+  )
+
   const sortedExpenses = useMemo(() => {
-    return [...filtered].sort((a, b) => {
+    return [...sidebarFiltered].sort((a, b) => {
       let cmp = 0
       if (sortKey === 'date')      cmp = a.date.localeCompare(b.date)
       else if (sortKey === 'cost') cmp = a.cost - b.cost
       else if (sortKey === 'name') cmp = a.name.localeCompare(b.name)
       return sortDir === 'desc' ? -cmp : cmp
     })
-  }, [filtered, sortKey, sortDir])
+  }, [sidebarFiltered, sortKey, sortDir])
 
   const monthDate      = new Date(`${monthStr}-01`)
   const prevMonthStr   = format(subMonths(monthDate, 1), 'yyyy-MM')
@@ -126,6 +134,14 @@ export default function Dashboard({
     setExcludedTypes(new Set()); setExcludedApps(new Set()); setExcludedModes(new Set())
     setExcludedPaidBy(new Set()); setExcludedTags(new Set()); setExcludeOneTime(false)
   }, [])
+
+  const handleSelectDay = useCallback((day: string) => {
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      setSelectedDate(prev => prev === day ? null : day)
+    } else {
+      router.push(`/expenses?month=${monthStr}&date=${day}`)
+    }
+  }, [router, monthStr])
 
   return (
     <div className="min-h-screen bg-base pb-16 md:pb-0">
@@ -190,14 +206,14 @@ export default function Dashboard({
             />
             <PaidByCard data={paidByData} />
             <CategoryCard data={categoryData} showComparison={showComparison} onToggleComparison={toggleComparison} />
-            <DailyTrendCard data={trendData} />
+            <DailyTrendCard data={trendData} onSelectDay={handleSelectDay} />
           </div>
 
           {/* Right (desktop only): transactions sidebar */}
           <aside className="hidden lg:flex card p-0 overflow-hidden flex-col lg:sticky lg:top-[7.5rem] lg:max-h-[calc(100vh-8.5rem)]">
             {/* Header */}
             <div className="px-4 py-3 border-b border-divider/60 flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-baseline gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
                 <p className="text-sm font-semibold text-ink truncate">
                   {sortedExpenses.length}
                   {sortedExpenses.length !== thisMonthExpenses.length && (
@@ -205,6 +221,14 @@ export default function Dashboard({
                   )}
                   <span className="text-muted font-normal"> transactions</span>
                 </p>
+                {selectedDate && (
+                  <button
+                    onClick={() => setSelectedDate(null)}
+                    className="pill pill-active !text-xs !py-0.5 !px-2 flex items-center gap-1 shrink-0"
+                  >
+                    Day {selectedDate.slice(8)} <span className="opacity-70">✕</span>
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1 text-xs shrink-0">
                 <select

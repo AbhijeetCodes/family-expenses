@@ -33,6 +33,21 @@ Browser → Next.js Server Action (app/actions.ts)
                       → Google Sheets API
 ```
 
+`getSheetsClient()` and `getTabSheetId()` in [lib/sheets.ts](lib/sheets.ts) are **module-scope singletons** — the `GoogleAuth` JWT client and the per-tab `sheetId` lookup are cached for the lifetime of the serverless instance. Never call `sheets.spreadsheets.get()` just to look up a tab's `sheetId`; use `getTabSheetId(TAB_NAME)`.
+
+### Caching & write invariants
+
+`getAllExpenses()` and `getSettings()` use a **60-second in-memory TTL cache** (per serverless instance). This is the main reason repeat navigation feels fast — most `force-dynamic` page loads inside a session hit the cache, not Sheets.
+
+**Critical invariant:** any server action that mutates Sheets data **must** bust the matching cache, otherwise users see stale data for up to 60s:
+
+- Writes to the `Expenses` tab → call `invalidateExpensesCache()` from [lib/expenses.ts](lib/expenses.ts)
+- Writes to the `Settings` tab (including `promoteLookupValues`) → call `invalidateSettingsCache()` from [lib/settings.ts](lib/settings.ts)
+
+Call them **alongside** `revalidatePath()`, not instead of — `revalidatePath` only busts Next.js's render cache, not our in-memory data cache. See every mutation handler in [app/actions.ts](app/actions.ts) for the pattern.
+
+Independent writes in the same action should run in `Promise.all` (see `createExpenseAction` / `updateExpenseAction` — `addExpense` and `promoteLookupValues` run concurrently, so the form waits for the slower call, not the sum).
+
 ### Auth
 
 `lib/auth.ts` configures Auth.js v5 with a Google provider. The `signIn` callback rejects any email not in `ALLOWED_EMAILS`. `middleware.ts` exports the auth handler directly, protecting every route except `/login`, `/api/auth/*`, and static assets.
@@ -96,6 +111,8 @@ The transaction list is **not** a separate card component — it lives inline in
 
 All Recharts components have `isAnimationActive={false}` — animations are expensive at every filter change. Use CSS transitions on chart containers instead if needed.
 
+`CategoryPie`, `CategoryCompare`, and `DailyTrend` are loaded via `next/dynamic` with `ssr: false` from inside `CategoryCard` / `DailyTrendCard`. This keeps Recharts (~200–300 KB) off the dashboard's initial JS bundle. Any new chart component should be imported the same way; a fixed-height skeleton placeholder matching the chart's height goes in the `loading` prop to avoid layout shift.
+
 `CategoryPie` groups any slice representing **less than 4%** of total spend into a single gray "Other" bucket. This prevents DOM bloat when a month has many small categories.
 
 Chart colors come from `colorForString()` in [components/icons.tsx](components/icons.tsx) — a deterministic hash → 8-color palette. The same function colors `CategoryIcon`, `AvatarBadge`, and `PaidByCard` bars, so a category looks consistent across the whole UI.
@@ -110,7 +127,9 @@ On form submit, `app/actions.ts` calls `promoteLookupValues()` which calls `addS
 
 ### Pages & rendering
 
-All pages are `dynamic = 'force-dynamic'`. `ExpenseForm` handles both create (no `existing` prop) and edit (with `existing`) via the same server actions in `app/actions.ts`.
+All pages are `dynamic = 'force-dynamic'`. The in-memory TTL cache (see *Caching & write invariants*) is what keeps these cheap — `force-dynamic` re-runs the React tree on every request, but the underlying Sheets fetch usually hits the cache.
+
+`ExpenseForm` handles both create (no `existing` prop) and edit (with `existing`) via the same server actions in `app/actions.ts`. **Form submit navigates first, then awaits the server action**: `router.push('/')` fires immediately on Save/Delete, the action runs inside `startTransition`, and `router.refresh()` pulls fresh data when it resolves. The user never blocks on the Sheets round-trip. Errors after navigation are logged to `console.error` — don't add UI that depends on validation throwing back to the form.
 
 ### Branding & PWA icons
 

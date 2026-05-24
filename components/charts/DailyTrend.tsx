@@ -1,13 +1,41 @@
 'use client'
 
 import { memo } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts'
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts'
 
-const tooltipStyle = { backgroundColor: '#1A1D2D', border: '1px solid #262A3D', borderRadius: 8 }
+const wrapperStyle = { pointerEvents: 'auto' as const }
 
-type Props = { data: { day: string; amount: number }[] }
+type TooltipProps = {
+  active?: boolean
+  payload?: { payload: { day: string }; value: number }[]
+  label?: string
+  onSelectDay?: (day: string) => void
+}
 
-function DailyTrendInner({ data }: Props) {
+function CustomTooltip({ active, payload, label, onSelectDay }: TooltipProps) {
+  if (!active || !payload?.length) return null
+  const day = payload[0].payload.day
+  const amount = payload[0].value
+  const dayNum = label?.replace(/^\d{4}-\d{2}-/, 'Day ') ?? label
+  return (
+    <div
+      onClick={() => onSelectDay?.(day)}
+      style={{ backgroundColor: '#1A1D2D', border: '1px solid #262A3D', borderRadius: 8, padding: '10px 14px', cursor: onSelectDay ? 'pointer' : 'default' }}
+    >
+      <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 4 }}>{dayNum}</p>
+      <p style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 600 }}>
+        Spent : ₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+      </p>
+      {onSelectDay && (
+        <p style={{ color: '#00D689', fontSize: 11, marginTop: 6 }}>Tap to view →</p>
+      )}
+    </div>
+  )
+}
+
+type Props = { data: { day: string; amount: number }[]; onSelectDay?: (day: string) => void }
+
+function DailyTrendInner({ data, onSelectDay }: Props) {
   if (!data.length) return <p className="text-center text-sm text-mutedDim py-8">No data</p>
   return (
     <ResponsiveContainer width="100%" height={190}>
@@ -34,11 +62,8 @@ function DailyTrendInner({ data }: Props) {
           tickLine={false}
         />
         <Tooltip
-          formatter={(v: number) => [`₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, 'Spent']}
-          labelFormatter={l => l.replace(/^\d{4}-\d{2}-/, 'Day ')}
-          contentStyle={tooltipStyle}
-          labelStyle={{ color: '#94A3B8' }}
-          itemStyle={{ color: '#FFFFFF' }}
+          wrapperStyle={wrapperStyle}
+          content={<CustomTooltip onSelectDay={onSelectDay} />}
           cursor={{ stroke: '#262A3D' }}
         />
         <Area
