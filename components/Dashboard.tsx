@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { format, subMonths, addMonths } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
-import KpiCard from './KpiCard'
-import CategoryPie from './charts/CategoryPie'
-import CategoryCompare from './charts/CategoryCompare'
-import DailyTrend from './charts/DailyTrend'
-import PaidByBreakdown from './charts/PaidByBreakdown'
+import OverviewCard from './cards/OverviewCard'
+import PaidByCard from './cards/PaidByCard'
+import CategoryCard from './cards/CategoryCard'
+import DailyTrendCard from './cards/DailyTrendCard'
+import TransactionList from './cards/TransactionList'
 import SignOutButton from './SignOutButton'
 import FilterDropdown from './FilterDropdown'
-import { WalletIcon } from './icons'
+import { WalletIcon, PlusIcon } from './icons'
 
 type Props = {
   thisMonthExpenses: Expense[]
@@ -35,47 +35,44 @@ export default function Dashboard({
   monthStr,
   userName,
 }: Props) {
-  // Filter state — Sets hold EXCLUDED values (default empty = show everything)
-  const [excludedTypes, setExcludedTypes] = useState<Set<string>>(new Set())
-  const [excludedApps, setExcludedApps] = useState<Set<string>>(new Set())
-  const [excludedModes, setExcludedModes] = useState<Set<string>>(new Set())
-  const [excludedPaidBy, setExcludedPaidBy] = useState<Set<string>>(new Set())
-  const [excludedTags, setExcludedTags] = useState<Set<string>>(new Set())
-  const [excludeOneTime, setExcludeOneTime] = useState(false)
+  const [excludedTypes,   setExcludedTypes]   = useState<Set<string>>(new Set())
+  const [excludedApps,    setExcludedApps]    = useState<Set<string>>(new Set())
+  const [excludedModes,   setExcludedModes]   = useState<Set<string>>(new Set())
+  const [excludedPaidBy,  setExcludedPaidBy]  = useState<Set<string>>(new Set())
+  const [excludedTags,    setExcludedTags]    = useState<Set<string>>(new Set())
+  const [excludeOneTime,  setExcludeOneTime]  = useState(false)
 
-  // UI state
-  const [activeTab, setActiveTab] = useState<'overview' | 'transactions'>('overview')
   const [showComparison, setShowComparison] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  // Options for each dropdown (unique values in current month)
   const allTypes   = useMemo(() => unique(thisMonthExpenses.map(e => e.expenseType)), [thisMonthExpenses])
-  const allApps    = useMemo(() => unique(thisMonthExpenses.map(e => e.app)), [thisMonthExpenses])
+  const allApps    = useMemo(() => unique(thisMonthExpenses.map(e => e.app)),         [thisMonthExpenses])
   const allModes   = useMemo(() => unique(thisMonthExpenses.map(e => e.paymentMode)), [thisMonthExpenses])
-  const allPaidBy  = useMemo(() => unique(thisMonthExpenses.map(e => e.paidBy)), [thisMonthExpenses])
-  const allTags    = useMemo(() => unique(thisMonthExpenses.flatMap(e => e.tags)), [thisMonthExpenses])
+  const allPaidBy  = useMemo(() => unique(thisMonthExpenses.map(e => e.paidBy)),      [thisMonthExpenses])
+  const allTags    = useMemo(() => unique(thisMonthExpenses.flatMap(e => e.tags)),    [thisMonthExpenses])
 
   const totalActiveFilters =
     excludedTypes.size + excludedApps.size + excludedModes.size + excludedPaidBy.size + excludedTags.size + (excludeOneTime ? 1 : 0)
 
-  const applyFilters = (expenses: Expense[]) =>
+  const applyFilters = useCallback((expenses: Expense[]) =>
     expenses.filter(e => {
-      if (excludedTypes.has(e.expenseType))                            return false
-      if (excludedApps.has(e.app))                                     return false
-      if (excludedModes.has(e.paymentMode))                            return false
-      if (excludedPaidBy.has(e.paidBy))                                return false
-      // Tags: hide expense if ANY of its tags is excluded
-      if (e.tags.some(t => excludedTags.has(t)))                       return false
-      if (excludeOneTime && e.oneTime)                                 return false
+      if (excludedTypes.has(e.expenseType))                 return false
+      if (excludedApps.has(e.app))                          return false
+      if (excludedModes.has(e.paymentMode))                 return false
+      if (excludedPaidBy.has(e.paidBy))                     return false
+      if (e.tags.some(t => excludedTags.has(t)))            return false
+      if (excludeOneTime && e.oneTime)                      return false
       return true
-    })
+    }),
+    [excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime]
+  )
 
-  const filtered     = useMemo(() => applyFilters(thisMonthExpenses), [thisMonthExpenses, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
-  const filteredPrev = useMemo(() => applyFilters(prevMonthExpenses), [prevMonthExpenses, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
+  const filtered     = useMemo(() => applyFilters(thisMonthExpenses), [applyFilters, thisMonthExpenses])
+  const filteredPrev = useMemo(() => applyFilters(prevMonthExpenses), [applyFilters, prevMonthExpenses])
 
-  const total     = filtered.reduce((s, e) => s + e.cost, 0)
-  const prevTotal = filteredPrev.reduce((s, e) => s + e.cost, 0)
+  const total     = useMemo(() => filtered.reduce((s, e) => s + e.cost, 0), [filtered])
+  const prevTotal = useMemo(() => filteredPrev.reduce((s, e) => s + e.cost, 0), [filteredPrev])
 
   const categoryData = useMemo(() => {
     const curr: Record<string, number> = {}
@@ -90,7 +87,8 @@ export default function Dashboard({
   const trendData = useMemo(() => {
     const byDay: Record<string, number> = {}
     for (const e of filtered) if (e.date) byDay[e.date] = (byDay[e.date] ?? 0) + e.cost
-    return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([day, amount]) => ({ day, amount }))
+    return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, amount]) => ({ day, amount }))
   }, [filtered])
 
   const paidByData = useMemo(() => {
@@ -109,211 +107,104 @@ export default function Dashboard({
     })
   }, [filtered, sortKey, sortDir])
 
-  const monthDate    = new Date(`${monthStr}-01`)
-  const prevMonthStr = format(subMonths(monthDate, 1), 'yyyy-MM')
-  const nextMonthStr = format(addMonths(monthDate, 1), 'yyyy-MM')
+  const monthDate      = new Date(`${monthStr}-01`)
+  const prevMonthStr   = format(subMonths(monthDate, 1), 'yyyy-MM')
+  const nextMonthStr   = format(addMonths(monthDate, 1), 'yyyy-MM')
   const isCurrentMonth = monthStr === format(new Date(), 'yyyy-MM')
 
-  function clearAllFilters() {
+  const toggleSortDir = useCallback(() => setSortDir(d => d === 'desc' ? 'asc' : 'desc'), [])
+  const toggleComparison = useCallback(() => setShowComparison(s => !s), [])
+
+  const clearAllFilters = useCallback(() => {
     setExcludedTypes(new Set()); setExcludedApps(new Set()); setExcludedModes(new Set())
     setExcludedPaidBy(new Set()); setExcludedTags(new Set()); setExcludeOneTime(false)
-  }
+  }, [])
 
   return (
-    <div className="min-h-screen bg-slate-900 pb-16 md:pb-0">
+    <div className="min-h-screen bg-base pb-16 md:pb-0">
       {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+      <header className="bg-surface border-b border-divider sticky top-0 z-30">
+        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <span className="font-bold text-slate-100 flex items-center gap-2">
-              <WalletIcon className="w-5 h-5 text-green-400" />
+            <span className="font-bold text-ink flex items-center gap-2">
+              <WalletIcon className="w-5 h-5 text-accent" />
               Expenses
             </span>
             <div className="flex items-center gap-0.5">
-              <Link href={`/?month=${prevMonthStr}`} className="text-slate-400 hover:text-slate-200 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-lg">‹</Link>
-              <span className="text-slate-200 font-medium text-sm px-2 min-w-[110px] text-center">{monthLabel}</span>
-              <Link href={`/?month=${nextMonthStr}`} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${isCurrentMonth ? 'text-slate-700 pointer-events-none' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'}`}>›</Link>
+              <Link href={`/?month=${prevMonthStr}`} className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface2 transition-colors text-lg">‹</Link>
+              <span className="text-ink font-medium text-sm px-2 min-w-[110px] text-center">{monthLabel}</span>
+              <Link href={`/?month=${nextMonthStr}`} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${isCurrentMonth ? 'text-mutedDim/40 pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}>›</Link>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/add" className="hidden md:flex items-center gap-1.5 bg-green-500 hover:bg-green-400 text-slate-900 font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors">
-              + Add expense
+          <div className="flex items-center gap-3">
+            <Link href="/add" className="hidden md:flex items-center gap-1.5 bg-accent hover:bg-accent-2 text-base font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors">
+              <PlusIcon className="w-4 h-4" /> Add Expense
             </Link>
-            <span className="text-sm text-slate-500 hidden md:block">{userName}</span>
+            <span className="text-sm text-muted hidden md:block">{userName}</span>
             <SignOutButton />
           </div>
         </div>
       </header>
 
       {/* Filter bar */}
-      <div className="bg-slate-800/60 border-b border-slate-700/50">
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
+      <div className="bg-surface/60 border-b border-divider/50">
+        <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
           <FilterDropdown label="Type"    options={allTypes}  excluded={excludedTypes}  onChange={setExcludedTypes} />
           <FilterDropdown label="Paid By" options={allPaidBy} excluded={excludedPaidBy} onChange={setExcludedPaidBy} />
           <FilterDropdown label="App"     options={allApps}   excluded={excludedApps}   onChange={setExcludedApps} />
           <FilterDropdown label="Mode"    options={allModes}  excluded={excludedModes}  onChange={setExcludedModes} />
           <FilterDropdown label="Tags"    options={allTags}   excluded={excludedTags}   onChange={setExcludedTags} />
-
-          <div className="w-px h-4 bg-slate-700 mx-0.5" />
-
           <button
             onClick={() => setExcludeOneTime(!excludeOneTime)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
-              ${excludeOneTime
-                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                : 'bg-slate-700 text-slate-500 border-slate-600 hover:text-slate-300 hover:bg-slate-600'}`}
+            className={`pill ${excludeOneTime ? 'pill-active !bg-down/15 !text-down !border-down/30' : 'pill-default'}`}
           >
             {excludeOneTime ? '✕ one-time excluded' : 'Exclude one-time'}
           </button>
-
           {totalActiveFilters > 0 && (
-            <>
-              <div className="w-px h-4 bg-slate-700 mx-0.5" />
-              <button onClick={clearAllFilters} className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2">
-                Clear all ({totalActiveFilters})
-              </button>
-            </>
+            <button onClick={clearAllFilters} className="text-xs text-muted hover:text-ink transition-colors underline underline-offset-2 ml-auto">
+              Clear all ({totalActiveFilters})
+            </button>
           )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex border-b border-slate-700">
-          {(['overview', 'transactions'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
-                ${activeTab === tab ? 'text-green-400 border-green-400' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
-            >
-              {tab === 'transactions'
-                ? `Transactions (${sortedExpenses.length}${sortedExpenses.length !== thisMonthExpenses.length ? `/${thisMonthExpenses.length}` : ''})`
-                : 'Overview'}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Main layout: 2-col on desktop, single column on mobile */}
+      <main className="max-w-[1400px] mx-auto px-4 py-4">
+        <div className="grid lg:grid-cols-[1fr_400px] xl:grid-cols-[1fr_440px] gap-4 lg:items-start">
 
-      {/* Overview tab */}
-      {activeTab === 'overview' && (
-        <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <KpiCard total={total} prevTotal={prevTotal} month={monthLabel} />
-            <div className="card">
-              <h2 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Paid By</h2>
-              <PaidByBreakdown data={paidByData} />
-            </div>
+          {/* Left column: analytics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:sticky lg:top-[7.5rem]">
+            <OverviewCard total={total} prevTotal={prevTotal} monthLabel={monthLabel} />
+            <PaidByCard data={paidByData} />
+            <CategoryCard data={categoryData} showComparison={showComparison} onToggleComparison={toggleComparison} />
+            <DailyTrendCard data={trendData} />
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="card">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-medium text-slate-500 uppercase tracking-wide">By Category</h2>
-                <button
-                  onClick={() => setShowComparison(!showComparison)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors
-                    ${showComparison ? 'text-blue-400 border-blue-500/40 bg-blue-500/10' : 'text-slate-500 border-slate-600 hover:text-slate-300'}`}
-                >
-                  {showComparison ? '↕ vs last month' : 'vs last month'}
-                </button>
-              </div>
-              {showComparison
-                ? <CategoryCompare data={categoryData} />
-                : <CategoryPie data={categoryData.map(d => ({ name: d.name, value: d.current }))} />}
-            </div>
-            <div className="card">
-              <h2 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Daily Spending</h2>
-              <DailyTrend data={trendData} />
-            </div>
+
+          {/* Right column: transaction list */}
+          <div className="lg:h-[calc(100vh-7.5rem)]">
+            <TransactionList
+              expenses={sortedExpenses}
+              totalCount={thisMonthExpenses.length}
+              monthLabel={monthLabel}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSortKeyChange={setSortKey}
+              onSortDirChange={toggleSortDir}
+              totalActiveFilters={totalActiveFilters}
+            />
           </div>
         </div>
-      )}
-
-      {/* Transactions tab */}
-      {activeTab === 'transactions' && (
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="card p-0 overflow-hidden">
-            {/* Sort controls */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/50">
-              <span className="text-xs text-slate-500">
-                {sortedExpenses.length} transaction{sortedExpenses.length !== 1 ? 's' : ''}
-                {sortedExpenses.length !== thisMonthExpenses.length && (
-                  <span className="text-slate-600"> of {thisMonthExpenses.length}</span>
-                )}
-              </span>
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-600">Sort</span>
-                <select
-                  value={sortKey}
-                  onChange={e => setSortKey(e.target.value as SortKey)}
-                  className="bg-slate-700 border border-slate-600 rounded-lg text-slate-300 text-xs py-1 px-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option value="date">Date</option>
-                  <option value="cost">Amount</option>
-                  <option value="name">Name</option>
-                </select>
-                <button
-                  onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
-                  className="text-slate-400 hover:text-slate-200 transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-slate-700"
-                  title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
-                >
-                  {sortDir === 'desc' ? '↓' : '↑'}
-                </button>
-              </div>
-            </div>
-
-            {sortedExpenses.length === 0 ? (
-              <p className="text-center py-12 text-slate-500 text-sm">
-                {totalActiveFilters > 0 ? 'No transactions match the current filters.' : `No expenses for ${monthLabel}`}
-              </p>
-            ) : (
-              <div className="divide-y divide-slate-700/50">
-                {sortedExpenses.map(e => (
-                  <Link
-                    key={e.rowIndex}
-                    href={`/expenses/${e.rowIndex}`}
-                    className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-700/40 transition-colors group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-slate-100 truncate">{e.name}</p>
-                        {e.oneTime && (
-                          <span className="text-[10px] uppercase tracking-wide bg-amber-500/15 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full shrink-0 font-medium">one-time</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {e.expenseType}{e.app ? ` · ${e.app}` : ''} · {e.date.slice(5).replace('-', '/')}
-                        {e.paymentMode ? ` · ${e.paymentMode}` : ''}
-                      </p>
-                      {e.tags.length > 0 && (
-                        <div className="flex gap-1 mt-1 flex-wrap">
-                          {e.tags.map(t => <span key={t} className="text-xs bg-slate-700 text-slate-400 rounded px-1.5 py-0.5">{t}</span>)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-3">
-                      <div className="text-right">
-                        <p className="font-semibold text-sm text-slate-100">₹{e.cost.toLocaleString('en-IN')}</p>
-                        <p className="text-xs text-slate-500">{e.paidBy}</p>
-                      </div>
-                      <span className="text-slate-600 group-hover:text-slate-400 transition-colors text-sm hidden md:block">Edit ›</span>
-                      <span className="text-slate-600 group-hover:text-slate-400 transition-colors md:hidden">›</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      </main>
 
       {/* Mobile FAB */}
       <Link
         href="/add"
-        className="fixed bottom-20 right-4 md:hidden w-12 h-12 bg-green-500 text-slate-900 rounded-full
-                   flex items-center justify-center text-2xl shadow-lg active:bg-green-400 z-30 font-light"
+        className="fixed bottom-20 right-4 lg:hidden w-14 h-14 bg-accent hover:bg-accent-2 text-base rounded-full
+                   flex items-center justify-center shadow-lg z-30"
         aria-label="Add expense"
-      >+</Link>
+      >
+        <PlusIcon className="w-6 h-6" />
+      </Link>
     </div>
   )
 }

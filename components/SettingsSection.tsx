@@ -34,22 +34,22 @@ export default function SettingsSection({ column, label, values: initial }: Prop
 
   return (
     <div className="card space-y-3">
-      <h2 className="font-semibold text-sm text-gray-700">{label}</h2>
+      <h2 className="font-semibold text-sm text-ink">{label}</h2>
       <div className="flex flex-wrap gap-2">
         {values.map(v => (
-          <span key={v} className="flex items-center gap-1 bg-slate-700 text-slate-300 rounded-full px-3 py-1.5 text-sm border border-slate-600">
+          <span key={v} className="flex items-center gap-1 bg-surface2 text-muted rounded-full px-3 py-1.5 text-sm border border-divider">
             {v}
             <button
               onClick={() => remove(v)}
               disabled={pending}
-              className="text-slate-500 hover:text-red-400 transition-colors leading-none ml-1"
+              className="text-mutedDim hover:text-down transition-colors leading-none ml-1"
               aria-label={`Remove ${v}`}
             >
               ×
             </button>
           </span>
         ))}
-        {values.length === 0 && <p className="text-xs text-slate-500">No values yet</p>}
+        {values.length === 0 && <p className="text-xs text-mutedDim">No values yet</p>}
       </div>
       <div className="flex gap-2">
         <input
@@ -64,8 +64,8 @@ export default function SettingsSection({ column, label, values: initial }: Prop
         <button
           onClick={add}
           disabled={pending || !input.trim()}
-          className="px-4 py-2 bg-green-500 text-slate-900 rounded-xl text-sm font-medium
-                     disabled:opacity-40 hover:bg-green-400 transition-colors"
+          className="px-4 py-2 bg-accent text-base rounded-xl text-sm font-medium
+                     disabled:opacity-40 hover:bg-accent-2 transition-colors"
         >
           Add
         </button>

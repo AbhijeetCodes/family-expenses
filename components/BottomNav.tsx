@@ -14,7 +14,7 @@ const links = [
 export default function BottomNav() {
   const pathname = usePathname()
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-40 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-divider z-40 lg:hidden">
       <div className="flex max-w-lg mx-auto">
         {links.map(l => {
           const active = l.href === '/' ? pathname === '/' : pathname.startsWith(l.href)
@@ -23,7 +23,7 @@ export default function BottomNav() {
               key={l.href}
               href={l.href}
               className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors
-                ${active ? 'text-green-400' : 'text-slate-500'}`}
+                ${active ? 'text-accent' : 'text-mutedDim'}`}
             >
               <l.Icon className="w-5 h-5" />
               {l.label}

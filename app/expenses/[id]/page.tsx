@@ -23,8 +23,8 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
   return (
     <div className="min-h-screen pb-24">
       <header className="page-header">
-        <Link href="/expenses" className="text-slate-400 hover:text-slate-200 text-lg w-8 h-8 flex items-center justify-center">←</Link>
-        <h1 className="font-bold text-lg text-slate-100">Edit Expense</h1>
+        <Link href="/expenses" className="text-muted hover:text-ink text-lg w-8 h-8 flex items-center justify-center">←</Link>
+        <h1 className="font-bold text-lg text-ink">Edit Expense</h1>
       </header>
       <div className="max-w-lg mx-auto px-4 py-4">
         <ExpenseForm settings={settings} existing={expense} />

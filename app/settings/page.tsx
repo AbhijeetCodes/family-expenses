@@ -23,7 +23,7 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen pb-24">
       <header className="page-header">
-        <h1 className="font-bold text-lg text-slate-100">Settings</h1>
+        <h1 className="font-bold text-lg text-ink">Settings</h1>
       </header>
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
         {SECTIONS.map(s => (

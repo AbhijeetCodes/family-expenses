@@ -1,38 +1,62 @@
 'use client'
 
+import { memo, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { colorForString } from '../icons'
 
-const COLORS = ['#4ade80','#60a5fa','#fbbf24','#f87171','#a78bfa','#fb7185','#34d399','#fb923c']
-const tooltipStyle = { backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }
+const tooltipStyle = { backgroundColor: '#1A1D2D', border: '1px solid #262A3D', borderRadius: 8 }
+const OTHER_THRESHOLD = 0.04 // 4%
 
 type Props = { data: { name: string; value: number }[] }
 
-export default function CategoryPie({ data }: Props) {
-  if (!data.length) return <p className="text-center text-sm text-slate-500 py-8">No data</p>
+function bucketSmallSlices(data: { name: string; value: number }[]) {
+  const total = data.reduce((s, d) => s + d.value, 0)
+  if (total === 0) return data
+  const main: typeof data = []
+  let otherSum = 0
+  for (const d of data) {
+    if (d.value / total < OTHER_THRESHOLD) otherSum += d.value
+    else main.push(d)
+  }
+  if (otherSum > 0) main.push({ name: 'Other', value: otherSum })
+  return main
+}
+
+function CategoryPieInner({ data }: Props) {
+  const bucketed = useMemo(() => bucketSmallSlices(data), [data])
+  if (!bucketed.length) return <p className="text-center text-sm text-mutedDim py-8">No data</p>
+
   return (
     <ResponsiveContainer width="100%" height={240}>
       <PieChart>
         <Pie
-          data={data}
+          data={bucketed}
           cx="50%"
           cy="45%"
           innerRadius={55}
           outerRadius={85}
           paddingAngle={2}
           dataKey="value"
+          isAnimationActive={false}
         >
-          {data.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+          {bucketed.map((d, i) => (
+            <Cell key={d.name} fill={d.name === 'Other' ? '#64748B' : colorForString(d.name)} />
           ))}
         </Pie>
         <Tooltip
           formatter={(v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
           contentStyle={tooltipStyle}
-          labelStyle={{ color: '#94a3b8' }}
-          itemStyle={{ color: '#f1f5f9' }}
+          labelStyle={{ color: '#94A3B8' }}
+          itemStyle={{ color: '#FFFFFF' }}
         />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+        <Legend
+          iconType="circle"
+          iconSize={8}
+          wrapperStyle={{ fontSize: 12, color: '#94A3B8' }}
+        />
       </PieChart>
     </ResponsiveContainer>
   )
 }
+
+export default memo(CategoryPieInner)

@@ -52,3 +52,69 @@ export function WalletIcon({ className = base }: IconProps) {
     </svg>
   )
 }
+
+export function PencilIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+    </svg>
+  )
+}
+
+/* -------- Category color helpers -------- */
+
+const PALETTE = [
+  '#00D689', // green (accent)
+  '#3B82F6', // blue
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#A78BFA', // purple
+  '#EC4899', // pink
+  '#14B8A6', // teal
+  '#FB923C', // orange
+]
+
+export function colorForString(s: string): string {
+  if (!s) return PALETTE[0]
+  let hash = 0
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash * 31 + s.charCodeAt(i)) >>> 0
+  }
+  return PALETTE[hash % PALETTE.length]
+}
+
+/* -------- Decorative badges -------- */
+
+type CategoryIconProps = { category: string; size?: 'sm' | 'md' | 'lg' }
+export function CategoryIcon({ category, size = 'md' }: CategoryIconProps) {
+  const initial = (category || '?').charAt(0).toUpperCase()
+  const color = colorForString(category)
+  const sizeClass =
+    size === 'sm' ? 'w-8 h-8 text-xs rounded-lg' :
+    size === 'lg' ? 'w-12 h-12 text-base rounded-2xl' :
+    'w-10 h-10 text-sm rounded-xl'
+  return (
+    <div
+      className={`${sizeClass} flex items-center justify-center font-bold flex-shrink-0`}
+      style={{ backgroundColor: `${color}26`, color }}
+      aria-hidden
+    >
+      {initial}
+    </div>
+  )
+}
+
+type AvatarBadgeProps = { initial: string; size?: 'sm' | 'md' }
+export function AvatarBadge({ initial, size = 'md' }: AvatarBadgeProps) {
+  const color = colorForString(initial)
+  const sizeClass = size === 'sm' ? 'w-6 h-6 text-[11px]' : 'w-7 h-7 text-xs'
+  return (
+    <div
+      className={`${sizeClass} rounded-full flex items-center justify-center font-bold border-2`}
+      style={{ color, borderColor: color, backgroundColor: `${color}15` }}
+      aria-hidden
+    >
+      {(initial || '?').charAt(0).toUpperCase()}
+    </div>
+  )
+}

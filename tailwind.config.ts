@@ -9,13 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50:  '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-        },
+        base:        '#10121D',
+        surface:     '#1A1D2D',
+        surface2:    '#252836',
+        divider:     '#262A3D',
+        accent:      '#00D689',
+        'accent-2':  '#00B575',
+        ink:         '#FFFFFF',
+        muted:       '#94A3B8',
+        mutedDim:    '#64748B',
+        up:          '#22C55E',
+        down:        '#EF4444',
+      },
+      fontFamily: {
+        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Inter', 'sans-serif'],
+      },
+      boxShadow: {
+        card: '0 1px 0 0 rgba(255,255,255,0.02) inset, 0 8px 24px -12px rgba(0,0,0,0.4)',
       },
     },
   },

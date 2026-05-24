@@ -5,7 +5,7 @@ import { useRef, useEffect, useState } from 'react'
 type Props = {
   label: string
   options: string[]
-  excluded: Set<string>          // values that are turned OFF (hidden)
+  excluded: Set<string>
   onChange: (next: Set<string>) => void
 }
 
@@ -39,14 +39,11 @@ export default function FilterDropdown({ label, options, excluded, onChange }: P
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap
-          ${active
-            ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-            : 'bg-slate-700 text-slate-400 border-slate-600 hover:text-slate-200 hover:bg-slate-600'}`}
+        className={`pill ${active ? '!bg-down/15 !text-down !border-down/30' : 'pill-default'}`}
       >
         {label}
         {active && (
-          <span className="bg-amber-500 text-slate-900 font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] leading-none">
+          <span className="bg-down text-ink font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] leading-none">
             ✕{excludedCount}
           </span>
         )}
@@ -54,18 +51,17 @@ export default function FilterDropdown({ label, options, excluded, onChange }: P
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 min-w-[180px] py-1 overflow-hidden">
-          {/* Quick toggles */}
-          <div className="flex gap-1 px-2 pt-1 pb-1.5 border-b border-slate-700/70">
+        <div className="absolute top-full left-0 mt-1.5 bg-surface border border-divider rounded-xl shadow-2xl z-50 min-w-[180px] py-1 overflow-hidden">
+          <div className="flex gap-1 px-2 pt-1 pb-1.5 border-b border-divider/70">
             <button
               onClick={allOn}
-              className="flex-1 text-xs py-1 rounded-md bg-slate-700/50 hover:bg-slate-700 text-slate-300 transition-colors"
+              className="flex-1 text-xs py-1 rounded-md bg-surface2/50 hover:bg-surface2 text-muted hover:text-ink transition-colors"
             >
               All
             </button>
             <button
               onClick={allOff}
-              className="flex-1 text-xs py-1 rounded-md bg-slate-700/50 hover:bg-slate-700 text-slate-300 transition-colors"
+              className="flex-1 text-xs py-1 rounded-md bg-surface2/50 hover:bg-surface2 text-muted hover:text-ink transition-colors"
             >
               None
             </button>
@@ -77,15 +73,15 @@ export default function FilterDropdown({ label, options, excluded, onChange }: P
               return (
                 <label
                   key={opt}
-                  className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-slate-700/60 cursor-pointer transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-surface2/60 cursor-pointer transition-colors"
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggle(opt)}
-                    className="rounded border-slate-600 bg-slate-700 text-green-500 focus:ring-green-500 focus:ring-offset-slate-800 cursor-pointer"
+                    className="rounded border-divider bg-surface2 text-accent focus:ring-accent focus:ring-offset-surface cursor-pointer"
                   />
-                  <span className={`text-sm select-none ${checked ? 'text-slate-200' : 'text-slate-500 line-through'}`}>
+                  <span className={`text-sm select-none ${checked ? 'text-ink' : 'text-mutedDim line-through'}`}>
                     {opt}
                   </span>
                 </label>

@@ -67,7 +67,7 @@ export default function ExpenseForm({ settings, existing }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2 text-sm text-red-700">
+        <div className="bg-down/10 border border-down/20 rounded-xl px-4 py-2 text-sm text-down">
           {error}
         </div>
       )}
@@ -146,16 +146,16 @@ export default function ExpenseForm({ settings, existing }: Props) {
       </div>
 
       {/* One-time toggle */}
-      <div className="flex items-center justify-between bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between bg-surface2/50 border border-divider rounded-xl px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-slate-200">One-time expense</p>
-          <p className="text-xs text-slate-500">Not a recurring purchase</p>
+          <p className="text-sm font-medium text-ink">One-time expense</p>
+          <p className="text-xs text-mutedDim">Not a recurring purchase</p>
         </div>
         <button
           type="button"
           onClick={() => set('oneTime', !form.oneTime)}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-            ${form.oneTime ? 'bg-brand-600' : 'bg-gray-300'}`}
+            ${form.oneTime ? 'bg-accent' : 'bg-divider'}`}
         >
           <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform
             ${form.oneTime ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -174,8 +174,8 @@ export default function ExpenseForm({ settings, existing }: Props) {
                 onClick={() => toggleTag(tag)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors
                   ${form.tags.includes(tag)
-                    ? 'bg-green-500 text-slate-900 border-green-500'
-                    : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'}`}
+                    ? 'bg-accent text-base border-accent'
+                    : 'bg-surface2 text-muted border-divider hover:bg-surface2/80'}`}
               >
                 {tag}
               </button>
@@ -192,9 +192,9 @@ export default function ExpenseForm({ settings, existing }: Props) {
         <>
           {showDeleteConfirm ? (
             <div className="space-y-2">
-              <p className="text-sm text-center text-slate-400">Delete this expense?</p>
+              <p className="text-sm text-center text-muted">Delete this expense?</p>
               <button type="button" onClick={handleDelete} disabled={pending}
-                className="w-full bg-red-500/20 text-red-400 border border-red-500/30 font-semibold py-3 px-4 rounded-xl hover:bg-red-500/30 transition-colors disabled:opacity-50">
+                className="w-full bg-down/20 text-down border border-down/30 font-semibold py-3 px-4 rounded-xl hover:bg-down/30 transition-colors disabled:opacity-50">
                 {pending ? 'Deleting…' : 'Yes, delete'}
               </button>
               <button type="button" onClick={() => setShowDeleteConfirm(false)} className="btn-secondary">
@@ -203,7 +203,7 @@ export default function ExpenseForm({ settings, existing }: Props) {
             </div>
           ) : (
             <button type="button" onClick={() => setShowDeleteConfirm(true)}
-              className="w-full text-slate-600 hover:text-red-400 text-sm font-medium py-2 transition-colors">
+              className="w-full text-mutedDim hover:text-down text-sm font-medium py-2 transition-colors">
               Delete expense
             </button>
           )}
