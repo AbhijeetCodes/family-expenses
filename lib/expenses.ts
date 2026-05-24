@@ -94,7 +94,7 @@ export async function addExpense(e: Omit<Expense, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
     range: `${EXPENSES_TAB}!A:J`,
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: 'RAW',
     requestBody: { values: [expenseToRow(e)] },
   })
 }
@@ -104,7 +104,7 @@ export async function updateExpense(rowIndex: number, e: Omit<Expense, 'rowIndex
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
     range: `${EXPENSES_TAB}!A${rowIndex}:J${rowIndex}`,
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: 'RAW',
     requestBody: { values: [expenseToRow(e)] },
   })
 }

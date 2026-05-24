@@ -89,7 +89,8 @@ All cards are wrapped in `React.memo` so toggling a filter only re-renders cards
 - `PaidByCard` — custom horizontal progress bars + avatar pile (no Recharts; faster, matches mockup)
 - `CategoryCard` — wraps `CategoryPie` or `CategoryCompare` based on `showComparison`
 - `DailyTrendCard` — wraps `DailyTrend`
-- `TransactionList` — virtualized list (see below)
+
+The transaction list is **not** a separate card component — it lives inline inside the `<aside>` in `Dashboard.tsx` (desktop only, `hidden lg:flex`). `HistoryView.tsx` has its own independent inline list for the `/expenses` page.
 
 ### Charts ([components/charts/](components/charts/))
 
@@ -99,11 +100,13 @@ All Recharts components have `isAnimationActive={false}` — animations are expe
 
 Chart colors come from `colorForString()` in [components/icons.tsx](components/icons.tsx) — a deterministic hash → 8-color palette. The same function colors `CategoryIcon`, `AvatarBadge`, and `PaidByCard` bars, so a category looks consistent across the whole UI.
 
-### Virtualized transaction list
+### Freeform lookup values (Expense Type / App / Payment Mode)
 
-[components/cards/TransactionList.tsx](components/cards/TransactionList.tsx) uses `react-window` `FixedSizeList` with 72px rows. Below `VIRTUALIZE_THRESHOLD` (30) it falls back to a plain divided list — virtualization overhead isn't worth it for short lists. Container height is measured with `ResizeObserver` so the sidebar fills available vertical space without a fixed-px hack.
+These three fields in `ExpenseForm.tsx` use `<input type="text" list="...">` + `<datalist>` instead of a `<select>`. The browser renders a native autocomplete popup from the existing Settings values; the user can also type anything freeform.
 
-Individual row component (`Row`) is also `memo`-wrapped — keeps scroll smooth on large lists.
+On form submit, `app/actions.ts` calls `promoteLookupValues()` which calls `addSettingValues()` from `lib/settings.ts`. That function does a **single read** of the Settings tab, deduplicates case-insensitively, and issues a **single `batchUpdate`** write — so a new value typed by the user silently appears as a suggestion next time without any manual Settings management.
+
+`PaidBy` and `Tags` intentionally stay curated (`<select>` and chip multi-select respectively) — typos there corrupt expense attribution.
 
 ### Pages & rendering
 

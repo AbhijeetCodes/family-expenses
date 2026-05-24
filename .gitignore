@@ -1,6 +1,10 @@
 .env
 .env.local
 .env*.local
+.env.production
+.env.production.local
+*-service-account*.json
+*-credentials.json
 node_modules/
 .next/
 out/
