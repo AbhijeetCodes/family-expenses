@@ -86,12 +86,12 @@ Common utility classes in [app/globals.css](app/globals.css): `card`, `btn-prima
 
 [app/page.tsx](app/page.tsx) is a thin server component: it fetches `thisMonthExpenses` and `prevMonthExpenses` from Sheets, then renders `<Dashboard>`. All aggregation happens client-side inside [components/Dashboard.tsx](components/Dashboard.tsx).
 
-**Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is a 2×2 analytics card grid, right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column with a FAB. No tabs.
+**Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is a 2×2 analytics card grid, right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column with a FAB. No tabs. The header uses `relative` + `absolute left-1/2 -translate-x-1/2` to keep the month nav dead-centred on all viewports; the desktop right cluster (Add Expense + username) uses `ml-auto`.
 
 **State owned by Dashboard:**
 - Five filter Sets (`excludedTypes`, `excludedApps`, `excludedModes`, `excludedPaidBy`, `excludedTags`) — **inverted logic**: empty = show everything, non-empty = those values are hidden. Filter dropdowns default to all items checked; unchecking hides.
 - `excludeOneTime` boolean — **defaults to `true`** so big rare purchases (rent, deposits) don't skew the monthly total on first open.
-- `showComparison` (toggles `CategoryCard` between pie and grouped bars)
+- `showComparison` (toggles `CategoryCard` badge column between proportion % and delta % vs last month)
 - `sortKey`, `sortDir` for the transaction list
 - `selectedDate: string | null` — set when the user clicks a day on the Daily Spending chart
 
@@ -105,22 +105,22 @@ All cards are wrapped in `React.memo` so toggling a filter only re-renders cards
 
 - `OverviewCard` — total + trend pill + month-end linear forecast (only shown when viewing the current month: `(total / day-of-month) * days-in-month`)
 - `PaidByCard` — custom horizontal progress bars + avatar pile (no Recharts; faster, matches mockup)
-- `CategoryCard` — wraps `CategoryPie` or `CategoryCompare` based on `showComparison`
+- `CategoryCard` — wraps `CategoryBars`; passes `showComparison` to switch badge mode
 - `DailyTrendCard` — wraps `DailyTrend`; accepts `onSelectDay?: (day: string) => void` which it forwards straight through to the chart
 
 The transaction list is **not** a separate card component — it lives inline inside the `<aside>` in `Dashboard.tsx` (desktop only, `hidden lg:flex`). `HistoryView.tsx` has its own independent inline list for the `/expenses` page; it reads `?date=` from `useSearchParams` on mount to pre-filter to a specific day (populated by the mobile drill-down path).
 
 ### Charts ([components/charts/](components/charts/))
 
-All Recharts components have `isAnimationActive={false}` — animations are expensive at every filter change. Use CSS transitions on chart containers instead if needed.
+`CategoryBars` is a pure-CSS horizontal bar list — no Recharts, imported directly. Each row renders a `CategoryGlyph` icon chip, category name, a proportional bar, ₹ value, and a badge. Badge shows proportion % by default; when `showComparison` is true it shows a colored delta % vs last month (more spent = red `down`, less = green `up`). Slices under **4%** of total are bucketed into a gray "Other" row.
 
-`CategoryPie`, `CategoryCompare`, and `DailyTrend` are loaded via `next/dynamic` with `ssr: false` from inside `CategoryCard` / `DailyTrendCard`. This keeps Recharts (~200–300 KB) off the dashboard's initial JS bundle. Any new chart component should be imported the same way; a fixed-height skeleton placeholder matching the chart's height goes in the `loading` prop to avoid layout shift.
+`DailyTrend` uses Recharts and is loaded via `next/dynamic` with `ssr: false` from inside `DailyTrendCard`. This keeps Recharts (~200–300 KB) off the initial JS bundle. Any new Recharts component should follow the same pattern with a fixed-height skeleton in the `loading` prop to avoid layout shift. All Recharts components use `isAnimationActive={false}` — use CSS transitions instead if animation is needed.
 
-`DailyTrend` uses a **custom Recharts `<Tooltip content={...}>`** (read-only display) and wires its click interaction to `<AreaChart onClick>`, not to the tooltip itself. Do not move the click back to the tooltip — Recharts tracks cursor position across the entire SVG, so the tooltip jumps as the user moves toward it, making it unclickable in practice.
+`DailyTrend` wires click to `<AreaChart onClick>`, not the tooltip. Do not move it to the tooltip — Recharts moves the tooltip as the cursor approaches it, making it unclickable in practice.
 
-`CategoryPie` groups any slice representing **less than 4%** of total spend into a single gray "Other" bucket. This prevents DOM bloat when a month has many small categories.
+Colors come from `colorForString()` in [components/icons.tsx](components/icons.tsx) — a deterministic hash → 8-color palette. The same function drives `CategoryGlyph` chip backgrounds, `CategoryBars` bars, `AvatarBadge`, and `PaidByCard` bars, so a category/person looks consistent across the whole UI.
 
-Chart colors come from `colorForString()` in [components/icons.tsx](components/icons.tsx) — a deterministic hash → 8-color palette. The same function colors `CategoryIcon`, `AvatarBadge`, and `PaidByCard` bars, so a category looks consistent across the whole UI.
+`CategoryGlyph` (also in [components/icons.tsx](components/icons.tsx)) maps a category name to a clean SVG icon via case-insensitive keyword matching (e.g. "rent" → home, "health" → cross, "grocery" → cart). Unrecognised names fall back to a generic circle glyph.
 
 ### Freeform lookup values (Expense Type / App / Payment Mode)
 
@@ -150,3 +150,5 @@ It writes:
 - `public/favicon.png` (32×32, browser tab)
 
 The in-app icon component is `JarIcon` (also exported as `WalletIcon` alias for back-compat) in [components/icons.tsx](components/icons.tsx) — used in the dashboard header and login page. Keep the on-device icon and the in-app icon visually consistent.
+
+`SignOutButton` lives in the Settings page Account card (bottom of [app/settings/page.tsx](app/settings/page.tsx)), not in the dashboard header.
