@@ -1,9 +1,9 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getAllExpenses } from '@/lib/expenses'
-import { format, startOfMonth, endOfMonth, subMonths, addMonths, isWithinInterval, parseISO } from 'date-fns'
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns'
 import BottomNav from '@/components/BottomNav'
-import Link from 'next/link'
+import HistoryView from '@/components/HistoryView'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,84 +21,19 @@ export default async function ExpensesPage({
   const interval = { start: startOfMonth(monthDate), end: endOfMonth(monthDate) }
 
   const all = await getAllExpenses()
-  const filtered = all.filter(e => {
+  const monthExpenses = all.filter(e => {
     if (!e.date) return false
     try { return isWithinInterval(parseISO(e.date), interval) } catch { return false }
-  }).sort((a, b) => b.date.localeCompare(a.date))
-
-  const total = filtered.reduce((s, e) => s + e.cost, 0)
-  const prevMonth = format(subMonths(monthDate, 1), 'yyyy-MM')
-  const nextMonth = format(addMonths(monthDate, 1), 'yyyy-MM')
-  const isCurrentMonth = monthStr === format(new Date(), 'yyyy-MM')
+  })
 
   return (
-    <div className="min-h-screen pb-24">
-      <header className="bg-surface border-b border-divider px-4 py-3 sticky top-0 z-30">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <Link href={`/expenses?month=${prevMonth}`} className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center text-xl rounded-lg hover:bg-surface2 transition-colors">‹</Link>
-          <h1 className="font-bold text-ink">{format(monthDate, 'MMMM yyyy')}</h1>
-          <Link
-            href={`/expenses?month=${nextMonth}`}
-            className={`w-8 h-8 flex items-center justify-center text-xl rounded-lg transition-colors
-              ${isCurrentMonth ? 'text-divider pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}
-          >›</Link>
-        </div>
-      </header>
-
-      <div className="max-w-lg mx-auto px-4 py-4 space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-mutedDim">{filtered.length} expenses</span>
-          <span className="font-bold text-accent">
-            ₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </span>
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="card text-center py-12 text-mutedDim text-sm">
-            No expenses for {format(monthDate, 'MMMM yyyy')}
-          </div>
-        ) : (
-          <div className="card p-0 overflow-hidden">
-            <div className="divide-y divide-divider/50">
-              {filtered.map(e => (
-                <Link
-                  key={e.rowIndex}
-                  href={`/expenses/${e.rowIndex}`}
-                  className="flex items-center justify-between px-4 py-3.5 hover:bg-surface2/40 transition-colors group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-ink truncate">{e.name}</p>
-                      {e.oneTime && (
-                        <span className="text-[10px] uppercase tracking-wide bg-down/15 text-down border border-down/20 px-2 py-0.5 rounded-full shrink-0 font-medium">one-time</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-mutedDim mt-0.5">
-                      {e.expenseType}{e.app ? ` · ${e.app}` : ''} · {e.date.slice(5).replace('-', '/')}
-                    </p>
-                    {e.tags.length > 0 && (
-                      <div className="flex gap-1 mt-1 flex-wrap">
-                        {e.tags.map(t => (
-                          <span key={t} className="text-xs bg-surface2 text-muted rounded px-1.5 py-0.5">{t}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    <div className="text-right">
-                      <p className="font-semibold text-sm text-ink">₹{e.cost.toLocaleString('en-IN')}</p>
-                      <p className="text-xs text-mutedDim">{e.paidBy}</p>
-                    </div>
-                    <span className="text-mutedDim group-hover:text-muted transition-colors">›</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
+    <>
+      <HistoryView
+        monthExpenses={monthExpenses}
+        monthLabel={format(monthDate, 'MMMM yyyy')}
+        monthStr={monthStr}
+      />
       <BottomNav />
-    </div>
+    </>
   )
 }

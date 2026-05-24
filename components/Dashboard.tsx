@@ -8,7 +8,6 @@ import OverviewCard from './cards/OverviewCard'
 import PaidByCard from './cards/PaidByCard'
 import CategoryCard from './cards/CategoryCard'
 import DailyTrendCard from './cards/DailyTrendCard'
-import TransactionList from './cards/TransactionList'
 import SignOutButton from './SignOutButton'
 import FilterDropdown from './FilterDropdown'
 import { WalletIcon, PlusIcon } from './icons'
@@ -20,9 +19,6 @@ type Props = {
   monthStr: string
   userName: string
 }
-
-type SortKey = 'date' | 'cost' | 'name'
-type SortDir = 'desc' | 'asc'
 
 function unique(arr: string[]) {
   return [...new Set(arr.filter(Boolean))].sort()
@@ -43,8 +39,6 @@ export default function Dashboard({
   const [excludeOneTime,  setExcludeOneTime]  = useState(true)
 
   const [showComparison, setShowComparison] = useState(false)
-  const [sortKey, setSortKey] = useState<SortKey>('date')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const allTypes   = useMemo(() => unique(thisMonthExpenses.map(e => e.expenseType)), [thisMonthExpenses])
   const allApps    = useMemo(() => unique(thisMonthExpenses.map(e => e.app)),         [thisMonthExpenses])
@@ -97,16 +91,6 @@ export default function Dashboard({
     return Object.entries(byPerson).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
   }, [filtered])
 
-  const sortedExpenses = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      let cmp = 0
-      if (sortKey === 'date') cmp = a.date.localeCompare(b.date)
-      else if (sortKey === 'cost') cmp = a.cost - b.cost
-      else if (sortKey === 'name') cmp = a.name.localeCompare(b.name)
-      return sortDir === 'desc' ? -cmp : cmp
-    })
-  }, [filtered, sortKey, sortDir])
-
   const monthDate      = new Date(`${monthStr}-01`)
   const prevMonthStr   = format(subMonths(monthDate, 1), 'yyyy-MM')
   const nextMonthStr   = format(addMonths(monthDate, 1), 'yyyy-MM')
@@ -121,7 +105,6 @@ export default function Dashboard({
     [isCurrentMonth, total, daysElapsed, daysInMonth]
   )
 
-  const toggleSortDir = useCallback(() => setSortDir(d => d === 'desc' ? 'asc' : 'desc'), [])
   const toggleComparison = useCallback(() => setShowComparison(s => !s), [])
 
   const clearAllFilters = useCallback(() => {
@@ -177,38 +160,20 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Main layout: 2-col on desktop, single column on mobile */}
-      <main className="max-w-[1400px] mx-auto px-4 py-4">
-        <div className="grid lg:grid-cols-[1fr_400px] xl:grid-cols-[1fr_440px] gap-4 lg:items-start">
-
-          {/* Left column: analytics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:sticky lg:top-[7.5rem]">
-            <OverviewCard
-              total={total}
-              prevTotal={prevTotal}
-              monthLabel={monthLabel}
-              forecast={forecast}
-              daysElapsed={daysElapsed}
-              daysInMonth={daysInMonth}
-            />
-            <PaidByCard data={paidByData} />
-            <CategoryCard data={categoryData} showComparison={showComparison} onToggleComparison={toggleComparison} />
-            <DailyTrendCard data={trendData} />
-          </div>
-
-          {/* Right column: transaction list */}
-          <div className="lg:h-[calc(100vh-7.5rem)]">
-            <TransactionList
-              expenses={sortedExpenses}
-              totalCount={thisMonthExpenses.length}
-              monthLabel={monthLabel}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSortKeyChange={setSortKey}
-              onSortDirChange={toggleSortDir}
-              totalActiveFilters={totalActiveFilters}
-            />
-          </div>
+      {/* Analytics grid */}
+      <main className="max-w-5xl mx-auto px-4 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <OverviewCard
+            total={total}
+            prevTotal={prevTotal}
+            monthLabel={monthLabel}
+            forecast={forecast}
+            daysElapsed={daysElapsed}
+            daysInMonth={daysInMonth}
+          />
+          <PaidByCard data={paidByData} />
+          <CategoryCard data={categoryData} showComparison={showComparison} onToggleComparison={toggleComparison} />
+          <DailyTrendCard data={trendData} />
         </div>
       </main>
 
