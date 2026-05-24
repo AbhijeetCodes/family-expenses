@@ -1,7 +1,12 @@
 'use client'
 
 import { memo } from 'react'
-import DailyTrend from '../charts/DailyTrend'
+import dynamic from 'next/dynamic'
+
+const DailyTrend = dynamic(() => import('../charts/DailyTrend'), {
+  loading: () => <div className="h-[190px] animate-pulse rounded-xl bg-surface2" />,
+  ssr: false,
+})
 
 type Props = { data: { day: string; amount: number }[] }
 

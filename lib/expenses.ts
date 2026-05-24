@@ -1,5 +1,12 @@
-import { getSheetsClient, SHEET_ID, EXPENSES_TAB } from './sheets'
+import { getSheetsClient, getTabSheetId, SHEET_ID, EXPENSES_TAB } from './sheets'
 import { format, parse, isValid } from 'date-fns'
+
+const CACHE_TTL_MS = 60_000
+let _expensesCache: { data: Expense[]; expiresAt: number } | null = null
+
+export function invalidateExpensesCache(): void {
+  _expensesCache = null
+}
 
 export type Expense = {
   rowIndex: number   // 1-based sheet row
@@ -79,6 +86,7 @@ function expenseToRow(e: Omit<Expense, 'rowIndex'>): string[] {
 }
 
 export async function getAllExpenses(): Promise<Expense[]> {
+  if (_expensesCache && Date.now() < _expensesCache.expiresAt) return _expensesCache.data
   const sheets = getSheetsClient()
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
@@ -86,7 +94,9 @@ export async function getAllExpenses(): Promise<Expense[]> {
   })
   const rows = res.data.values ?? []
   // Skip header row (row 1 → rowIndex 1, data starts at index 1 in array = rowIndex 2)
-  return rows.slice(1).map((row, i) => rowToExpense(row as string[], i + 2))
+  const data = rows.slice(1).map((row, i) => rowToExpense(row as string[], i + 2))
+  _expensesCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
+  return data
 }
 
 export async function addExpense(e: Omit<Expense, 'rowIndex'>): Promise<void> {
@@ -111,10 +121,7 @@ export async function updateExpense(rowIndex: number, e: Omit<Expense, 'rowIndex
 
 export async function deleteExpense(rowIndex: number): Promise<void> {
   const sheets = getSheetsClient()
-  // Get spreadsheet to find the Expenses sheet sheetId
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID })
-  const sheet = meta.data.sheets?.find(s => s.properties?.title === EXPENSES_TAB)
-  const sheetId = sheet?.properties?.sheetId ?? 0
+  const sheetId = await getTabSheetId(EXPENSES_TAB)
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SHEET_ID,
     requestBody: {

@@ -1,8 +1,18 @@
 'use client'
 
 import { memo } from 'react'
-import CategoryPie from '../charts/CategoryPie'
-import CategoryCompare from '../charts/CategoryCompare'
+import dynamic from 'next/dynamic'
+
+const ChartSkeleton = () => <div className="h-[240px] animate-pulse rounded-xl bg-surface2" />
+
+const CategoryPie = dynamic(() => import('../charts/CategoryPie'), {
+  loading: ChartSkeleton,
+  ssr: false,
+})
+const CategoryCompare = dynamic(() => import('../charts/CategoryCompare'), {
+  loading: ChartSkeleton,
+  ssr: false,
+})
 
 type Datum = { name: string; current: number; prev: number }
 type Props = {
