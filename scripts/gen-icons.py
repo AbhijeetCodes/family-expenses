@@ -1,71 +1,108 @@
 #!/usr/bin/env python3
 """
-Generate PWA icons: a friendly wallet logo on the brand-green rounded square.
-Pure stdlib (no PIL) — encodes PNG manually.
+Generate PWA icons: a cute money-jar logo (jar outline with gold & silver
+coins piled at the bottom) on the brand dark navy.
 
-Design (at 512px reference):
-  - Outer rounded square: accent green (#00D689), corner radius 120
-  - White wallet body: rounded rectangle, centered
-  - Smaller white "tab" above body (the flap)
-  - Small green circle on the right side of the body (the button)
-  - Small dark "card peek" rectangle inside the wallet for character
+Pure stdlib (no PIL) — encodes PNG manually with simple shape primitives.
 """
 
 import struct, zlib, os
 
 # Brand colors
-BG     = (16, 18, 29)       # #10121D
-GREEN  = (0, 214, 137)      # #00D689
-WHITE  = (255, 255, 255)
-DARK_HINT = (16, 18, 29)    # for subtle card peek
+BASE   = (16, 18, 29)        # #10121D dark navy (page bg)
+LIGHT  = (218, 224, 232)     # off-white for jar outline
+GOLD   = (250, 191, 36)      # #FABF24 - golden coin
+GOLD_E = (190, 138, 12)      # gold edge
+SILVER = (199, 207, 219)     # #C7CFDB - silver coin
+SILVER_E= (140, 152, 170)    # silver edge
 
-# Reference design coordinates assume a 512x512 canvas
-REF = 512
+REF = 512  # reference design size; output scales from this
 
-def in_rounded_rect(x, y, left, top, right, bottom, r):
-    if x < left or x > right or y < top or y > bottom:
+# --- Geometry primitives ---
+
+def in_rounded_rect(x, y, L, T, R, B, r):
+    """True if point is inside a filled rounded rectangle."""
+    if x < L or x > R or y < T or y > B:
         return False
-    # Inside the straight regions
-    if left + r <= x <= right - r:
+    if L + r <= x <= R - r:
         return True
-    if top + r <= y <= bottom - r:
+    if T + r <= y <= B - r:
         return True
-    # Check rounded corners
-    for cx, cy in ((left+r, top+r), (right-r, top+r),
-                   (left+r, bottom-r), (right-r, bottom-r)):
-        # Determine which corner this point could belong to
+    for cx, cy in ((L+r, T+r), (R-r, T+r), (L+r, B-r), (R-r, B-r)):
         if abs(x-cx) <= r and abs(y-cy) <= r:
             if (x-cx)**2 + (y-cy)**2 <= r*r:
                 return True
     return False
 
+def on_rounded_rect_outline(x, y, L, T, R, B, r, thickness):
+    """True if point is on the outline (stroke) of a rounded rect."""
+    if not in_rounded_rect(x, y, L, T, R, B, r):
+        return False
+    return not in_rounded_rect(
+        x, y, L+thickness, T+thickness, R-thickness, B-thickness, max(0, r-thickness)
+    )
+
 def in_circle(x, y, cx, cy, r):
     return (x-cx)**2 + (y-cy)**2 <= r*r
 
+# --- Logo design (jar + coins) ---
+
+# Jar lid/rim — wide thin pill at top
+LID = (156, 80, 356, 142, 18)   # L, T, R, B, corner-r
+
+# Jar body — bigger pill below
+BODY = (118, 158, 394, 438, 38)
+
+STROKE = 10  # outline thickness
+
+# Coins: list of (cx, cy, r, fill, edge), drawn back→front
+COINS = [
+    # Back row
+    (175, 372, 32, GOLD,   GOLD_E),
+    (252, 360, 36, SILVER, SILVER_E),
+    (332, 372, 32, GOLD,   GOLD_E),
+    # Front row (drawn on top)
+    (158, 410, 28, SILVER, SILVER_E),
+    (228, 412, 32, GOLD,   GOLD_E),
+    (305, 410, 30, SILVER, SILVER_E),
+    (375, 408, 26, GOLD,   GOLD_E),
+]
+
 def pixel_color(x, y):
-    """Return RGB for a pixel at ref-coord (x, y) in 0..512."""
-    # Outside outer rounded square -> transparent/dark
-    if not in_rounded_rect(x, y, 0, 0, REF, REF, 120):
-        return BG
-    color = GREEN
+    # Layer 1: jar outlines on top of everything except coins-inside check below
+    lid_outline  = on_rounded_rect_outline(x, y, *LID, STROKE)
+    body_outline = on_rounded_rect_outline(x, y, *BODY, STROKE)
 
-    # Wallet body (white): rect centered slightly below middle
-    if in_rounded_rect(x, y, 116, 188, 396, 388, 36):
-        color = WHITE
+    # Coins should appear INSIDE the jar (clipped by body interior).
+    inside_body = in_rounded_rect(
+        x, y, BODY[0]+STROKE, BODY[1]+STROKE,
+        BODY[2]-STROKE, BODY[3]-STROKE, max(0, BODY[4]-STROKE)
+    )
 
-    # Flap above body (white)
-    if in_rounded_rect(x, y, 150, 148, 362, 204, 22):
-        color = WHITE
+    # Coin layer (painter algorithm: later coins overwrite earlier ones)
+    coin_color = None
+    if inside_body:
+        for cx, cy, r, fill, edge in COINS:
+            if in_circle(x, y, cx, cy, r):
+                # 3px edge ring for definition
+                if in_circle(x, y, cx, cy, r - 3):
+                    coin_color = fill
+                else:
+                    coin_color = edge
 
-    # Card peek (subtle dark stripe inside wallet, top portion)
-    if in_rounded_rect(x, y, 116, 224, 396, 258, 0):
-        color = (210, 224, 220)  # very light gray-green for subtle card
+    # Compose: jar outline on top (so coins peek out from behind the rim if they cross),
+    # but bottom of body outline is in front of coins (jar wall hides bottom of coin pile)
+    if lid_outline:
+        return LIGHT
+    if body_outline:
+        # Coins should be CLIPPED by the body outline (jar shows through where coin protrudes)
+        # but we want the outline visible. So outline wins over coin.
+        return LIGHT
+    if coin_color is not None:
+        return coin_color
+    return BASE
 
-    # Closure button (green circle on right side of wallet body)
-    if in_circle(x, y, 360, 288, 14):
-        color = GREEN
-
-    return color
+# --- PNG encoder ---
 
 def write_chunk(t, d):
     c = t + d
@@ -75,7 +112,7 @@ def make_png(size):
     scale = REF / size
     rows = []
     for py in range(size):
-        row = b'\x00'  # PNG filter byte
+        row = b'\x00'
         y_ref = (py + 0.5) * scale
         for px in range(size):
             x_ref = (px + 0.5) * scale
@@ -96,14 +133,10 @@ for s in (192, 512):
         f.write(make_png(s))
     print(f'Generated {path}')
 
-# Apple touch icon (180×180 is the iOS standard)
-path = 'public/apple-touch-icon.png'
-with open(path, 'wb') as f:
+with open('public/apple-touch-icon.png', 'wb') as f:
     f.write(make_png(180))
-print(f'Generated {path}')
+print('Generated public/apple-touch-icon.png')
 
-# Favicon (32×32 PNG; modern browsers accept PNG as favicon)
-path = 'public/favicon.png'
-with open(path, 'wb') as f:
+with open('public/favicon.png', 'wb') as f:
     f.write(make_png(32))
-print(f'Generated {path}')
+print('Generated public/favicon.png')

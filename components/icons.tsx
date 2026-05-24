@@ -45,13 +45,23 @@ export function CogIcon({ className = base }: IconProps) {
   )
 }
 
-export function WalletIcon({ className = base }: IconProps) {
+/** Money-jar icon (matches the app's home-screen logo). */
+export function JarIcon({ className = base }: IconProps) {
   return (
     <svg {...svgProps} className={className}>
-      <path d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+      {/* lid */}
+      <rect x="7" y="3" width="10" height="2.6" rx="1.2" />
+      {/* body */}
+      <path d="M5.5 7h13M5.5 7v12.25A1.75 1.75 0 0 0 7.25 21h9.5A1.75 1.75 0 0 0 18.5 19.25V7" />
+      {/* two stylised coins peeking */}
+      <circle cx="10" cy="17" r="1.4" fill="currentColor" stroke="none" opacity="0.55" />
+      <circle cx="13.5" cy="17.3" r="1.6" fill="currentColor" stroke="none" opacity="0.55" />
     </svg>
   )
 }
+
+/** Kept as alias so existing imports still work — both render the jar now. */
+export const WalletIcon = JarIcon
 
 export function PencilIcon({ className = base }: IconProps) {
   return (
