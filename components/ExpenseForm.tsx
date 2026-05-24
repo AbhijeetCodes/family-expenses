@@ -46,21 +46,31 @@ export default function ExpenseForm({ settings, existing }: Props) {
     if (!form.cost || form.cost <= 0) return setError('Enter a valid cost')
     if (!form.paidBy) return setError('Select who paid')
     setError('')
+    router.push('/')
     startTransition(async () => {
-      if (existing) {
-        await updateExpenseAction(existing.rowIndex, form)
-      } else {
-        await createExpenseAction(form)
+      try {
+        if (existing) {
+          await updateExpenseAction(existing.rowIndex, form)
+        } else {
+          await createExpenseAction(form)
+        }
+      } catch (err) {
+        console.error('Save failed', err)
       }
-      router.push('/')
+      router.refresh()
     })
   }
 
   async function handleDelete() {
     if (!existing) return
+    router.push('/expenses')
     startTransition(async () => {
-      await deleteExpenseAction(existing.rowIndex)
-      router.push('/expenses')
+      try {
+        await deleteExpenseAction(existing.rowIndex)
+      } catch (err) {
+        console.error('Delete failed', err)
+      }
+      router.refresh()
     })
   }
 

@@ -1,8 +1,8 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { addExpense, updateExpense, deleteExpense, getAllExpenses, type Expense } from '@/lib/expenses'
-import { addSettingValue, addSettingValues, deleteSettingValue, type SettingsData } from '@/lib/settings'
+import { addExpense, updateExpense, deleteExpense, getAllExpenses, invalidateExpensesCache, type Expense } from '@/lib/expenses'
+import { addSettingValue, addSettingValues, deleteSettingValue, invalidateSettingsCache, type SettingsData } from '@/lib/settings'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -50,8 +50,9 @@ async function promoteLookupValues(data: Omit<Expense, 'rowIndex'>) {
 export async function createExpenseAction(data: Omit<Expense, 'rowIndex'>) {
   await requireAuth()
   validateExpenseData(data)
-  await addExpense(data)
-  await promoteLookupValues(data)
+  await Promise.all([addExpense(data), promoteLookupValues(data)])
+  invalidateExpensesCache()
+  invalidateSettingsCache()
   revalidatePath('/')
   revalidatePath('/expenses')
   revalidatePath('/settings')
@@ -61,8 +62,9 @@ export async function updateExpenseAction(rowIndex: number, data: Omit<Expense, 
   await requireAuth()
   validateExpenseData(data)
   await requireValidRowIndex(rowIndex)
-  await updateExpense(rowIndex, data)
-  await promoteLookupValues(data)
+  await Promise.all([updateExpense(rowIndex, data), promoteLookupValues(data)])
+  invalidateExpensesCache()
+  invalidateSettingsCache()
   revalidatePath('/')
   revalidatePath('/expenses')
   revalidatePath('/settings')
@@ -72,6 +74,7 @@ export async function deleteExpenseAction(rowIndex: number) {
   await requireAuth()
   await requireValidRowIndex(rowIndex)
   await deleteExpense(rowIndex)
+  invalidateExpensesCache()
   revalidatePath('/')
   revalidatePath('/expenses')
 }
@@ -79,11 +82,13 @@ export async function deleteExpenseAction(rowIndex: number) {
 export async function addSettingAction(column: keyof SettingsData, value: string) {
   await requireAuth()
   await addSettingValue(column, value)
+  invalidateSettingsCache()
   revalidatePath('/settings')
 }
 
 export async function deleteSettingAction(column: keyof SettingsData, value: string) {
   await requireAuth()
   await deleteSettingValue(column, value)
+  invalidateSettingsCache()
   revalidatePath('/settings')
 }

@@ -8,6 +8,13 @@ export type SettingsData = {
   tags: string[]
 }
 
+const CACHE_TTL_MS = 60_000
+let _settingsCache: { data: SettingsData; expiresAt: number } | null = null
+
+export function invalidateSettingsCache(): void {
+  _settingsCache = null
+}
+
 // Column positions in Settings tab (0-indexed)
 const COLS = {
   expenseTypes: 0,
@@ -20,6 +27,7 @@ const COLS = {
 const COL_HEADERS = ['ExpenseTypes', 'Apps', 'PaymentModes', 'PaidBy', 'Tags']
 
 export async function getSettings(): Promise<SettingsData> {
+  if (_settingsCache && Date.now() < _settingsCache.expiresAt) return _settingsCache.data
   const sheets = getSheetsClient()
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
@@ -32,13 +40,15 @@ export async function getSettings(): Promise<SettingsData> {
       .filter(Boolean)
       .sort((a, b) => a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase()))
 
-  return {
+  const data: SettingsData = {
     expenseTypes: extract(COLS.expenseTypes),
     apps: extract(COLS.apps),
     paymentModes: extract(COLS.paymentModes),
     paidBy: extract(COLS.paidBy),
     tags: extract(COLS.tags),
   }
+  _settingsCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
+  return data
 }
 
 // Internal: read the Settings tab as a 2D array (preserves sheet row order so we
