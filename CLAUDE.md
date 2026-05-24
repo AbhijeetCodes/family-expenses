@@ -93,8 +93,11 @@ Common utility classes in [app/globals.css](app/globals.css): `card`, `btn-prima
 - `excludeOneTime` boolean — **defaults to `true`** so big rare purchases (rent, deposits) don't skew the monthly total on first open.
 - `showComparison` (toggles `CategoryCard` between pie and grouped bars)
 - `sortKey`, `sortDir` for the transaction list
+- `selectedDate: string | null` — set when the user clicks a day on the Daily Spending chart
 
-Filter state drives both analytics cards and the transaction list — all share the same `filtered` derivation.
+**Two derived filter layers** — analytics cards (Overview, PaidBy, Category, DailyTrend) all consume `filtered` (the global filter set). The sidebar has a second layer: `sidebarFiltered = selectedDate ? filtered.filter(e => e.date === selectedDate) : filtered`. This means selecting a day scopes only the sidebar list, never the charts — so the user keeps full-month context while drilling in.
+
+`handleSelectDay` is viewport-aware: on desktop (≥ 1024 px / Tailwind `lg`) it sets `selectedDate` in place; on mobile it `router.push`es to `/expenses?month=YYYY-MM&date=YYYY-MM-DD` instead (the sidebar is `hidden lg:flex` so there's nothing to filter in place).
 
 ### Card components ([components/cards/](components/cards/))
 
@@ -103,15 +106,17 @@ All cards are wrapped in `React.memo` so toggling a filter only re-renders cards
 - `OverviewCard` — total + trend pill + month-end linear forecast (only shown when viewing the current month: `(total / day-of-month) * days-in-month`)
 - `PaidByCard` — custom horizontal progress bars + avatar pile (no Recharts; faster, matches mockup)
 - `CategoryCard` — wraps `CategoryPie` or `CategoryCompare` based on `showComparison`
-- `DailyTrendCard` — wraps `DailyTrend`
+- `DailyTrendCard` — wraps `DailyTrend`; accepts `onSelectDay?: (day: string) => void` which it forwards straight through to the chart
 
-The transaction list is **not** a separate card component — it lives inline inside the `<aside>` in `Dashboard.tsx` (desktop only, `hidden lg:flex`). `HistoryView.tsx` has its own independent inline list for the `/expenses` page.
+The transaction list is **not** a separate card component — it lives inline inside the `<aside>` in `Dashboard.tsx` (desktop only, `hidden lg:flex`). `HistoryView.tsx` has its own independent inline list for the `/expenses` page; it reads `?date=` from `useSearchParams` on mount to pre-filter to a specific day (populated by the mobile drill-down path).
 
 ### Charts ([components/charts/](components/charts/))
 
 All Recharts components have `isAnimationActive={false}` — animations are expensive at every filter change. Use CSS transitions on chart containers instead if needed.
 
 `CategoryPie`, `CategoryCompare`, and `DailyTrend` are loaded via `next/dynamic` with `ssr: false` from inside `CategoryCard` / `DailyTrendCard`. This keeps Recharts (~200–300 KB) off the dashboard's initial JS bundle. Any new chart component should be imported the same way; a fixed-height skeleton placeholder matching the chart's height goes in the `loading` prop to avoid layout shift.
+
+`DailyTrend` uses a **custom Recharts `<Tooltip content={...}>`** (read-only display) and wires its click interaction to `<AreaChart onClick>`, not to the tooltip itself. Do not move the click back to the tooltip — Recharts tracks cursor position across the entire SVG, so the tooltip jumps as the user moves toward it, making it unclickable in practice.
 
 `CategoryPie` groups any slice representing **less than 4%** of total spend into a single gray "Other" bucket. This prevents DOM bloat when a month has many small categories.
 
