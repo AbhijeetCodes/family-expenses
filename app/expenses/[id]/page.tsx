@@ -8,11 +8,12 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-export default async function EditExpensePage({ params }: { params: { id: string } }) {
+export default async function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) redirect('/login')
 
-  const rowIndex = parseInt((await params).id)
+  const { id } = await params
+  const rowIndex = parseInt(id)
   if (isNaN(rowIndex)) notFound()
 
   const [all, settings] = await Promise.all([getAllExpenses(), getSettings()])
@@ -21,9 +22,9 @@ export default async function EditExpensePage({ params }: { params: { id: string
 
   return (
     <div className="min-h-screen pb-24">
-      <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-30">
-        <Link href="/expenses" className="text-gray-500 text-lg">←</Link>
-        <h1 className="font-bold text-lg">Edit Expense</h1>
+      <header className="page-header">
+        <Link href="/expenses" className="text-slate-400 hover:text-slate-200 text-lg w-8 h-8 flex items-center justify-center">←</Link>
+        <h1 className="font-bold text-lg text-slate-100">Edit Expense</h1>
       </header>
       <div className="max-w-lg mx-auto px-4 py-4">
         <ExpenseForm settings={settings} existing={expense} />

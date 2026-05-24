@@ -14,17 +14,18 @@ export type Expense = {
   tags: string[]
 }
 
-// Column order in the sheet (0-indexed)
+// Column order in the sheet (0-indexed). Column A is Month (auto-computed), data starts at B.
 const COL = {
-  date: 0,
-  expenseType: 1,
-  app: 2,
-  paymentMode: 3,
-  name: 4,
-  cost: 5,
-  paidBy: 6,
-  oneTime: 7,
-  tags: 8,
+  month: 0,
+  date: 1,
+  expenseType: 2,
+  app: 3,
+  paymentMode: 4,
+  name: 5,
+  cost: 6,
+  paidBy: 7,
+  oneTime: 8,
+  tags: 9,
 }
 
 function rowToExpense(row: string[], rowIndex: number): Expense {
@@ -64,6 +65,7 @@ function normaliseDate(raw: string): string {
 
 function expenseToRow(e: Omit<Expense, 'rowIndex'>): string[] {
   return [
+    e.date.slice(0, 7),   // Month column (YYYY-MM)
     e.date,
     e.expenseType,
     e.app,
@@ -80,7 +82,7 @@ export async function getAllExpenses(): Promise<Expense[]> {
   const sheets = getSheetsClient()
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${EXPENSES_TAB}!A:I`,
+    range: `${EXPENSES_TAB}!A:J`,
   })
   const rows = res.data.values ?? []
   // Skip header row (row 1 → rowIndex 1, data starts at index 1 in array = rowIndex 2)
@@ -91,7 +93,7 @@ export async function addExpense(e: Omit<Expense, 'rowIndex'>): Promise<void> {
   const sheets = getSheetsClient()
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${EXPENSES_TAB}!A:I`,
+    range: `${EXPENSES_TAB}!A:J`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [expenseToRow(e)] },
   })
@@ -101,7 +103,7 @@ export async function updateExpense(rowIndex: number, e: Omit<Expense, 'rowIndex
   const sheets = getSheetsClient()
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
-    range: `${EXPENSES_TAB}!A${rowIndex}:I${rowIndex}`,
+    range: `${EXPENSES_TAB}!A${rowIndex}:J${rowIndex}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [expenseToRow(e)] },
   })

@@ -146,10 +146,10 @@ export default function ExpenseForm({ settings, existing }: Props) {
       </div>
 
       {/* One-time toggle */}
-      <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-3">
         <div>
-          <p className="text-sm font-medium">One-time expense</p>
-          <p className="text-xs text-gray-400">Not a recurring purchase</p>
+          <p className="text-sm font-medium text-slate-200">One-time expense</p>
+          <p className="text-xs text-slate-500">Not a recurring purchase</p>
         </div>
         <button
           type="button"
@@ -174,8 +174,8 @@ export default function ExpenseForm({ settings, existing }: Props) {
                 onClick={() => toggleTag(tag)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors
                   ${form.tags.includes(tag)
-                    ? 'bg-brand-600 text-white border-brand-600'
-                    : 'bg-white text-gray-600 border-gray-300'}`}
+                    ? 'bg-green-500 text-slate-900 border-green-500'
+                    : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'}`}
               >
                 {tag}
               </button>
@@ -192,9 +192,9 @@ export default function ExpenseForm({ settings, existing }: Props) {
         <>
           {showDeleteConfirm ? (
             <div className="space-y-2">
-              <p className="text-sm text-center text-gray-600">Delete this expense?</p>
+              <p className="text-sm text-center text-slate-400">Delete this expense?</p>
               <button type="button" onClick={handleDelete} disabled={pending}
-                className="w-full bg-red-600 text-white font-semibold py-3 px-4 rounded-xl active:bg-red-700 transition-colors disabled:opacity-50">
+                className="w-full bg-red-500/20 text-red-400 border border-red-500/30 font-semibold py-3 px-4 rounded-xl hover:bg-red-500/30 transition-colors disabled:opacity-50">
                 {pending ? 'Deleting…' : 'Yes, delete'}
               </button>
               <button type="button" onClick={() => setShowDeleteConfirm(false)} className="btn-secondary">
@@ -203,7 +203,7 @@ export default function ExpenseForm({ settings, existing }: Props) {
             </div>
           ) : (
             <button type="button" onClick={() => setShowDeleteConfirm(true)}
-              className="w-full text-red-500 text-sm font-medium py-2">
+              className="w-full text-slate-600 hover:text-red-400 text-sm font-medium py-2 transition-colors">
               Delete expense
             </button>
           )}

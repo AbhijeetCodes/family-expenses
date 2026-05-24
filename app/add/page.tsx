@@ -15,9 +15,9 @@ export default async function AddPage() {
 
   return (
     <div className="min-h-screen pb-24">
-      <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-30">
-        <Link href="/" className="text-gray-500 text-lg">←</Link>
-        <h1 className="font-bold text-lg">Add Expense</h1>
+      <header className="page-header">
+        <Link href="/" className="text-slate-400 hover:text-slate-200 text-lg w-8 h-8 flex items-center justify-center">←</Link>
+        <h1 className="font-bold text-lg text-slate-100">Add Expense</h1>
       </header>
       <div className="max-w-lg mx-auto px-4 py-4">
         <ExpenseForm settings={settings} />

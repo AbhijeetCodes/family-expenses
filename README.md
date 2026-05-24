@@ -59,22 +59,98 @@ Household     Instamart    Cash                  tax-deductible
 
 ### 6. Set up environment variables
 
-Copy `.env.example` to `.env.local` and fill in all values:
+**6a. Create the file**
 
 ```bash
 cp .env.example .env.local
 ```
 
-| Variable | Where to find it |
-|---|---|
-| `NEXTAUTH_SECRET` | Run: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | `http://localhost:3000` for local dev |
-| `GOOGLE_CLIENT_ID` | OAuth client you created in step 2 |
-| `GOOGLE_CLIENT_SECRET` | OAuth client you created in step 2 |
-| `ALLOWED_EMAILS` | Comma-separated emails of family members |
-| `SHEET_ID` | The long ID in your Sheet URL: `docs.google.com/spreadsheets/d/**<ID>**/edit` |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `client_email` from the service account JSON |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | `private_key` value from the service account JSON (paste as-is, with `\n` line breaks) |
+Open `.env.local` in any text editor and fill in each value as described below.
+
+---
+
+**`NEXTAUTH_SECRET`** — a random secret used to sign session cookies.
+
+Run this in Terminal and paste the output:
+```bash
+openssl rand -base64 32
+```
+
+---
+
+**`NEXTAUTH_URL`** — set to `http://localhost:3000` for local dev (you'll change this to your Vercel URL later).
+
+---
+
+**`GOOGLE_CLIENT_ID`** and **`GOOGLE_CLIENT_SECRET`** — from the OAuth 2.0 client you created in step 2.
+
+In Google Cloud Console → **APIs & Services → Credentials** → click your OAuth client → copy the Client ID and Client Secret.
+
+---
+
+**`ALLOWED_EMAILS`** — comma-separated Google email addresses of everyone who should have access.
+
+```
+ALLOWED_EMAILS=you@gmail.com,spouse@gmail.com
+```
+
+---
+
+**`SHEET_ID`** — the long string in the middle of your Google Sheet's URL.
+
+Open your Sheet. The URL looks like:
+```
+https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms/edit
+```
+The Sheet ID is the part between `/d/` and `/edit`:
+```
+SHEET_ID=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
+```
+
+---
+
+**`GOOGLE_SERVICE_ACCOUNT_EMAIL`** — from the JSON key file you downloaded in step 3.
+
+Open the JSON file, find the `client_email` field, and copy its value:
+```json
+"client_email": "expenses-sheets-writer@your-project.iam.gserviceaccount.com"
+```
+
+```
+GOOGLE_SERVICE_ACCOUNT_EMAIL=expenses-sheets-writer@your-project.iam.gserviceaccount.com
+```
+
+---
+
+**`GOOGLE_SERVICE_ACCOUNT_KEY`** — the private key from the same JSON file. This is the fiddly one.
+
+Open the JSON file and find the `private_key` field. It looks like:
+```json
+"private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEow...long string...\n-----END RSA PRIVATE KEY-----\n"
+```
+
+Copy the entire value **including** the `-----BEGIN` and `-----END` lines. Paste it into `.env.local` wrapped in double quotes:
+
+```
+GOOGLE_SERVICE_ACCOUNT_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIEow...long string...\n-----END RSA PRIVATE KEY-----\n"
+```
+
+> **Important:** Keep the `\n` characters exactly as they are — do not replace them with real line breaks. The app converts `\n` → newlines automatically.
+
+---
+
+Your completed `.env.local` should look like:
+
+```
+NEXTAUTH_SECRET=abc123...
+NEXTAUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=123456789-xxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxx
+ALLOWED_EMAILS=you@gmail.com,spouse@gmail.com
+SHEET_ID=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
+GOOGLE_SERVICE_ACCOUNT_EMAIL=expenses-sheets-writer@your-project.iam.gserviceaccount.com
+GOOGLE_SERVICE_ACCOUNT_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n"
+```
 
 ### 7. Run locally
 

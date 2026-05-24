@@ -22,17 +22,12 @@ export default async function SettingsPage() {
 
   return (
     <div className="min-h-screen pb-24">
-      <header className="bg-white border-b border-gray-100 px-4 py-3 sticky top-0 z-30">
-        <h1 className="font-bold text-lg">Settings</h1>
+      <header className="page-header">
+        <h1 className="font-bold text-lg text-slate-100">Settings</h1>
       </header>
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
         {SECTIONS.map(s => (
-          <SettingsSection
-            key={s.key}
-            column={s.key}
-            label={s.label}
-            values={settings[s.key]}
-          />
+          <SettingsSection key={s.key} column={s.key} label={s.label} values={settings[s.key]} />
         ))}
       </div>
       <BottomNav />

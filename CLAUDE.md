@@ -6,21 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev      # Start dev server at http://localhost:3000
-npm run build    # Production build (also runs type-check)
+npm run build    # Production build (also type-checks)
 npm run lint     # ESLint
 ```
 
-No test suite is set up yet. Type-checking runs implicitly via `next build`.
+No test suite. Type-checking runs implicitly via `next build`.
 
 ## Required environment variables
 
-Copy `.env.example` → `.env.local` before running. All 8 variables are required — the app will crash at startup if any are missing. See `.env.example` for descriptions.
+Copy `.env.example` → `.env.local` before running. All 8 variables are required. See `.env.example` for where to find each value.
 
 ## Architecture
 
 ### Data flow
 
-All reads and writes go through **server components / server actions only** — no API routes for data, no client-side Sheets calls. The Google service account credentials never reach the browser.
+All reads and writes go through **server components / server actions only** — no API routes for data, no client-side Sheets calls. Service account credentials never reach the browser.
 
 ```
 Browser → Next.js Server Action (app/actions.ts)
@@ -31,27 +31,34 @@ Browser → Next.js Server Action (app/actions.ts)
 
 ### Auth
 
-`lib/auth.ts` configures Auth.js v5 with a Google provider. The `signIn` callback rejects any email not in the `ALLOWED_EMAILS` env var. `middleware.ts` exports the auth handler directly, protecting every route except `/login`, `/api/auth/*`, and static assets.
+`lib/auth.ts` configures Auth.js v5 with a Google provider. The `signIn` callback rejects any email not in `ALLOWED_EMAILS`. `middleware.ts` exports the auth handler directly, protecting every route except `/login`, `/api/auth/*`, and static assets.
 
-Every server action in `app/actions.ts` re-checks `auth()` server-side — do not rely solely on the middleware redirect.
+Every server action in `app/actions.ts` re-checks `auth()` server-side — do not rely solely on middleware.
 
 ### Google Sheets structure
 
-Two tabs in the Sheet:
+**`Expenses` tab** — columns A–J, row 1 is the header, data from row 2:
 
-- **`Expenses`** — one row per expense; columns A–I: Date, Expense Type, App, Mode of Payment, Name, Cost, Paid By, 1 time, Tags. Data starts at row 2 (row 1 is the header). `rowIndex` in the `Expense` type is the 1-based sheet row number, used for updates and deletes.
-- **`Settings`** — five columns (A–E): ExpenseTypes, Apps, PaymentModes, PaidBy, Tags. Each column is an independent list; row 1 is the header.
+| A | B | C | D | E | F | G | H | I | J |
+|---|---|---|---|---|---|---|---|---|---|
+| Month | Date | Expense Type | App | Mode of Payment | Name | Cost | Paid By | 1 time | Tags |
 
-`lib/expenses.ts` maps between JS objects and sheet rows. Date normalisation (`normaliseDate`) handles several formats the sheet might contain, including Google serial dates.
+Column A (`Month`, e.g. `2026-05`) is auto-computed from the date on write. `rowIndex` in the `Expense` type is the 1-based sheet row number and must stay accurate — deletes use `batchUpdate` with `deleteDimension` (not row-clearing) to prevent row shifts that would corrupt all subsequent `rowIndex` values.
 
-Deleting a row uses `batchUpdate` with `deleteDimension` (not clearing the row) to avoid leaving blank rows that corrupt `rowIndex` references.
+**`Settings` tab** — five columns (A–E): `ExpenseTypes`, `Apps`, `PaymentModes`, `PaidBy`, `Tags`. Each is an independent list; row 1 is the header. `lib/settings.ts` appends to the bottom on add, clears the cell (leaves a gap) on delete — `getSettings()` filters blanks so gaps are harmless.
+
+### Dashboard architecture
+
+`app/page.tsx` is a thin server component: it fetches `thisMonthExpenses` and `prevMonthExpenses` from Sheets, then renders `<Dashboard>`. All aggregation (chart data, totals, filter application) happens client-side inside `components/Dashboard.tsx`.
+
+`Dashboard.tsx` owns all interactive state:
+- **Five filter dropdowns** (Type, Paid By, App, Mode, Tags) — each is a `Set<string>`; empty set = show all, non-empty = show only matching. The same filter state drives both the Overview charts and the Transactions list.
+- **`excludeOneTime` toggle** — also shared across both tabs.
+- **Sort state** (`sortKey`, `sortDir`) — only applies to the Transactions tab.
+- **`showComparison` toggle** — switches the category donut to a grouped bar (`CategoryCompare`).
+
+`FilterDropdown.tsx` is a self-contained multi-select checkbox dropdown. Pass `selected: Set<string>` and `onChange`; it manages its own open/close state with a mousedown-outside listener.
 
 ### Pages & rendering
 
-All pages are `dynamic = 'force-dynamic'` (no caching) because data lives in Sheets and changes frequently. Dashboard aggregations (totals, chart data) are computed in the server component on each request — no separate aggregation endpoint.
-
-`ExpenseForm` is the only shared stateful component; it handles both create (no `existing` prop) and edit (with `existing` prop) via the same server actions.
-
-### Settings management
-
-`lib/settings.ts` appends new values to the bottom of each Settings column and clears (does not delete) rows when removing values. The `getSettings()` call filters blank cells, so gaps in the column are harmless.
+All pages are `dynamic = 'force-dynamic'`. `ExpenseForm` handles both create (no `existing` prop) and edit (with `existing`) via the same server actions in `app/actions.ts`.

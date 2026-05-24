@@ -9,16 +9,16 @@ function LoginContent() {
   const error = params.get('error')
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-gradient-to-b from-brand-50 to-white">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-slate-900">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <div className="text-5xl mb-4">💰</div>
-          <h1 className="text-2xl font-bold text-gray-900">Family Expenses</h1>
-          <p className="mt-2 text-sm text-gray-500">Private tracker for your family</p>
+          <h1 className="text-2xl font-bold text-slate-100">Family Expenses</h1>
+          <p className="mt-2 text-sm text-slate-500">Private tracker for your family</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 text-center">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400 text-center">
             {error === 'AccessDenied'
               ? 'Your account is not authorised. Contact the family admin.'
               : 'Sign-in failed. Please try again.'}
@@ -27,8 +27,8 @@ function LoginContent() {
 
         <button
           onClick={() => signIn('google', { callbackUrl: '/' })}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300
-                     rounded-xl py-3 px-4 font-medium shadow-sm active:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-center gap-3 bg-slate-800 border border-slate-600
+                     rounded-xl py-3 px-4 font-medium text-slate-200 hover:bg-slate-700 active:bg-slate-600 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -39,7 +39,7 @@ function LoginContent() {
           Continue with Google
         </button>
 
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-slate-600">
           Access is restricted to authorised family members only.
         </p>
       </div>

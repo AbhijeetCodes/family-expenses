@@ -37,19 +37,19 @@ export default function SettingsSection({ column, label, values: initial }: Prop
       <h2 className="font-semibold text-sm text-gray-700">{label}</h2>
       <div className="flex flex-wrap gap-2">
         {values.map(v => (
-          <span key={v} className="flex items-center gap-1 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-sm">
+          <span key={v} className="flex items-center gap-1 bg-slate-700 text-slate-300 rounded-full px-3 py-1.5 text-sm border border-slate-600">
             {v}
             <button
               onClick={() => remove(v)}
               disabled={pending}
-              className="text-gray-400 hover:text-red-500 transition-colors leading-none ml-1"
+              className="text-slate-500 hover:text-red-400 transition-colors leading-none ml-1"
               aria-label={`Remove ${v}`}
             >
               ×
             </button>
           </span>
         ))}
-        {values.length === 0 && <p className="text-xs text-gray-400">No values yet</p>}
+        {values.length === 0 && <p className="text-xs text-slate-500">No values yet</p>}
       </div>
       <div className="flex gap-2">
         <input
@@ -64,8 +64,8 @@ export default function SettingsSection({ column, label, values: initial }: Prop
         <button
           onClick={add}
           disabled={pending || !input.trim()}
-          className="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium
-                     disabled:opacity-40 active:bg-brand-700 transition-colors"
+          className="px-4 py-2 bg-green-500 text-slate-900 rounded-xl text-sm font-medium
+                     disabled:opacity-40 hover:bg-green-400 transition-colors"
         >
           Add
         </button>

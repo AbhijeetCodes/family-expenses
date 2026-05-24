@@ -9,15 +9,19 @@ export default function KpiCard({ total, prevTotal, month }: Props) {
   const up = diff !== null && diff > 0
 
   return (
-    <div className="bg-brand-600 rounded-2xl p-5 text-white shadow-md">
-      <p className="text-brand-100 text-sm font-medium">{month}</p>
-      <p className="text-4xl font-bold mt-1">
+    <div className="card">
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{month}</p>
+      <p className="text-4xl font-bold text-slate-100 mt-2">
         ₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
       </p>
       {diff !== null && (
-        <p className={`text-sm mt-1 ${up ? 'text-red-200' : 'text-green-200'}`}>
-          {up ? '▲' : '▼'} {Math.abs(diff).toFixed(1)}% vs last month
-        </p>
+        <div className="flex items-center gap-2 mt-2">
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full
+            ${up ? 'bg-red-500/15 text-red-400' : 'bg-green-500/15 text-green-400'}`}>
+            {up ? '▲' : '▼'} {Math.abs(diff).toFixed(1)}%
+          </span>
+          <span className="text-xs text-slate-600">vs last month</span>
+        </div>
       )}
     </div>
   )
