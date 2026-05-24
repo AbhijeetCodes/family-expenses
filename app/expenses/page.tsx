@@ -70,7 +70,7 @@ export default async function ExpensesPage({
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-slate-100 truncate">{e.name}</p>
                       {e.oneTime && (
-                        <span className="text-xs bg-amber-500/15 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded shrink-0">1×</span>
+                        <span className="text-[10px] uppercase tracking-wide bg-amber-500/15 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full shrink-0 font-medium">one-time</span>
                       )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">

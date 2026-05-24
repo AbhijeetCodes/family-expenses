@@ -29,6 +29,7 @@ export default function CategoryPie({ data }: Props) {
           formatter={(v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
           contentStyle={tooltipStyle}
           labelStyle={{ color: '#94a3b8' }}
+          itemStyle={{ color: '#f1f5f9' }}
         />
         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
       </PieChart>

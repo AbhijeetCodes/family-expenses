@@ -31,6 +31,8 @@ export default function PaidByBreakdown({ data }: Props) {
           formatter={(v: number) => [`₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, 'Spent']}
           contentStyle={tooltipStyle}
           labelStyle={{ color: '#94a3b8' }}
+          itemStyle={{ color: '#f1f5f9' }}
+          cursor={{ fill: 'rgba(148, 163, 184, 0.08)' }}
         />
         <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={18}>
           {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}

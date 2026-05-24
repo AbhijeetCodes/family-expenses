@@ -32,6 +32,8 @@ export default function CategoryCompare({ data }: Props) {
           formatter={(v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
           contentStyle={tooltipStyle}
           labelStyle={labelStyle}
+          itemStyle={{ color: '#f1f5f9' }}
+          cursor={{ fill: 'rgba(148, 163, 184, 0.08)' }}
         />
         <Legend
           iconType="circle"

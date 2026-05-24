@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { WalletIcon } from '@/components/icons'
 
 function LoginContent() {
   const params = useSearchParams()
@@ -12,7 +13,9 @@ function LoginContent() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-slate-900">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <div className="text-5xl mb-4">💰</div>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-green-500/15 text-green-400 mb-4">
+            <WalletIcon className="w-8 h-8" />
+          </div>
           <h1 className="text-2xl font-bold text-slate-100">Family Expenses</h1>
           <p className="mt-2 text-sm text-slate-500">Private tracker for your family</p>
         </div>

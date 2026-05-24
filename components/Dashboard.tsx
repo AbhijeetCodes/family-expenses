@@ -11,6 +11,7 @@ import DailyTrend from './charts/DailyTrend'
 import PaidByBreakdown from './charts/PaidByBreakdown'
 import SignOutButton from './SignOutButton'
 import FilterDropdown from './FilterDropdown'
+import { WalletIcon } from './icons'
 
 type Props = {
   thisMonthExpenses: Expense[]
@@ -34,12 +35,12 @@ export default function Dashboard({
   monthStr,
   userName,
 }: Props) {
-  // Filter state
-  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set())
-  const [filterApps, setFilterApps] = useState<Set<string>>(new Set())
-  const [filterModes, setFilterModes] = useState<Set<string>>(new Set())
-  const [filterPaidBy, setFilterPaidBy] = useState<Set<string>>(new Set())
-  const [filterTags, setFilterTags] = useState<Set<string>>(new Set())
+  // Filter state — Sets hold EXCLUDED values (default empty = show everything)
+  const [excludedTypes, setExcludedTypes] = useState<Set<string>>(new Set())
+  const [excludedApps, setExcludedApps] = useState<Set<string>>(new Set())
+  const [excludedModes, setExcludedModes] = useState<Set<string>>(new Set())
+  const [excludedPaidBy, setExcludedPaidBy] = useState<Set<string>>(new Set())
+  const [excludedTags, setExcludedTags] = useState<Set<string>>(new Set())
   const [excludeOneTime, setExcludeOneTime] = useState(false)
 
   // UI state
@@ -56,21 +57,22 @@ export default function Dashboard({
   const allTags    = useMemo(() => unique(thisMonthExpenses.flatMap(e => e.tags)), [thisMonthExpenses])
 
   const totalActiveFilters =
-    filterTypes.size + filterApps.size + filterModes.size + filterPaidBy.size + filterTags.size + (excludeOneTime ? 1 : 0)
+    excludedTypes.size + excludedApps.size + excludedModes.size + excludedPaidBy.size + excludedTags.size + (excludeOneTime ? 1 : 0)
 
   const applyFilters = (expenses: Expense[]) =>
     expenses.filter(e => {
-      if (filterTypes.size  > 0 && !filterTypes.has(e.expenseType))               return false
-      if (filterApps.size   > 0 && !filterApps.has(e.app))                        return false
-      if (filterModes.size  > 0 && !filterModes.has(e.paymentMode))               return false
-      if (filterPaidBy.size > 0 && !filterPaidBy.has(e.paidBy))                   return false
-      if (filterTags.size   > 0 && !e.tags.some(t => filterTags.has(t)))          return false
-      if (excludeOneTime && e.oneTime)                                             return false
+      if (excludedTypes.has(e.expenseType))                            return false
+      if (excludedApps.has(e.app))                                     return false
+      if (excludedModes.has(e.paymentMode))                            return false
+      if (excludedPaidBy.has(e.paidBy))                                return false
+      // Tags: hide expense if ANY of its tags is excluded
+      if (e.tags.some(t => excludedTags.has(t)))                       return false
+      if (excludeOneTime && e.oneTime)                                 return false
       return true
     })
 
-  const filtered     = useMemo(() => applyFilters(thisMonthExpenses), [thisMonthExpenses, filterTypes, filterApps, filterModes, filterPaidBy, filterTags, excludeOneTime])
-  const filteredPrev = useMemo(() => applyFilters(prevMonthExpenses), [prevMonthExpenses, filterTypes, filterApps, filterModes, filterPaidBy, filterTags, excludeOneTime])
+  const filtered     = useMemo(() => applyFilters(thisMonthExpenses), [thisMonthExpenses, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
+  const filteredPrev = useMemo(() => applyFilters(prevMonthExpenses), [prevMonthExpenses, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
 
   const total     = filtered.reduce((s, e) => s + e.cost, 0)
   const prevTotal = filteredPrev.reduce((s, e) => s + e.cost, 0)
@@ -113,8 +115,8 @@ export default function Dashboard({
   const isCurrentMonth = monthStr === format(new Date(), 'yyyy-MM')
 
   function clearAllFilters() {
-    setFilterTypes(new Set()); setFilterApps(new Set()); setFilterModes(new Set())
-    setFilterPaidBy(new Set()); setFilterTags(new Set()); setExcludeOneTime(false)
+    setExcludedTypes(new Set()); setExcludedApps(new Set()); setExcludedModes(new Set())
+    setExcludedPaidBy(new Set()); setExcludedTags(new Set()); setExcludeOneTime(false)
   }
 
   return (
@@ -123,7 +125,10 @@ export default function Dashboard({
       <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <span className="font-bold text-slate-100">💰 Expenses</span>
+            <span className="font-bold text-slate-100 flex items-center gap-2">
+              <WalletIcon className="w-5 h-5 text-green-400" />
+              Expenses
+            </span>
             <div className="flex items-center gap-0.5">
               <Link href={`/?month=${prevMonthStr}`} className="text-slate-400 hover:text-slate-200 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-lg">‹</Link>
               <span className="text-slate-200 font-medium text-sm px-2 min-w-[110px] text-center">{monthLabel}</span>
@@ -143,11 +148,11 @@ export default function Dashboard({
       {/* Filter bar */}
       <div className="bg-slate-800/60 border-b border-slate-700/50">
         <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <FilterDropdown label="Type"    options={allTypes}  selected={filterTypes}  onChange={setFilterTypes} />
-          <FilterDropdown label="Paid By" options={allPaidBy} selected={filterPaidBy} onChange={setFilterPaidBy} />
-          <FilterDropdown label="App"     options={allApps}   selected={filterApps}   onChange={setFilterApps} />
-          <FilterDropdown label="Mode"    options={allModes}  selected={filterModes}  onChange={setFilterModes} />
-          <FilterDropdown label="Tags"    options={allTags}   selected={filterTags}   onChange={setFilterTags} />
+          <FilterDropdown label="Type"    options={allTypes}  excluded={excludedTypes}  onChange={setExcludedTypes} />
+          <FilterDropdown label="Paid By" options={allPaidBy} excluded={excludedPaidBy} onChange={setExcludedPaidBy} />
+          <FilterDropdown label="App"     options={allApps}   excluded={excludedApps}   onChange={setExcludedApps} />
+          <FilterDropdown label="Mode"    options={allModes}  excluded={excludedModes}  onChange={setExcludedModes} />
+          <FilterDropdown label="Tags"    options={allTags}   excluded={excludedTags}   onChange={setExcludedTags} />
 
           <div className="w-px h-4 bg-slate-700 mx-0.5" />
 
@@ -158,7 +163,7 @@ export default function Dashboard({
                 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                 : 'bg-slate-700 text-slate-500 border-slate-600 hover:text-slate-300 hover:bg-slate-600'}`}
           >
-            {excludeOneTime ? '✕ 1-time excluded' : 'Exclude 1-time'}
+            {excludeOneTime ? '✕ one-time excluded' : 'Exclude one-time'}
           </button>
 
           {totalActiveFilters > 0 && (
@@ -273,7 +278,7 @@ export default function Dashboard({
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium text-slate-100 truncate">{e.name}</p>
                         {e.oneTime && (
-                          <span className="text-xs bg-amber-500/15 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded shrink-0">1×</span>
+                          <span className="text-[10px] uppercase tracking-wide bg-amber-500/15 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full shrink-0 font-medium">one-time</span>
                         )}
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">

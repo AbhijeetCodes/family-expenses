@@ -12,9 +12,13 @@ npm run lint     # ESLint
 
 No test suite. Type-checking runs implicitly via `next build`.
 
+After any change: `git add -A && git commit -m "..." && git push` — Vercel auto-deploys from `main` (~2 min). Production URL: `https://family-expenses-ten.vercel.app`.
+
 ## Required environment variables
 
 Copy `.env.example` → `.env.local` before running. All 8 variables are required. See `.env.example` for where to find each value.
+
+`ALLOWED_EMAILS` is a comma-separated list of Google email addresses with access (e.g. `a@gmail.com,b@gmail.com`). Change it in Vercel's Environment Variables and redeploy to add/remove family members — no code change needed.
 
 ## Architecture
 

@@ -31,6 +31,8 @@ export default function DailyTrend({ data }: Props) {
           labelFormatter={l => l.replace(/^\d{4}-\d{2}-/, 'Day ')}
           contentStyle={tooltipStyle}
           labelStyle={{ color: '#94a3b8' }}
+          itemStyle={{ color: '#f1f5f9' }}
+          cursor={{ stroke: '#334155' }}
         />
         <Line
           type="monotone"
