@@ -110,7 +110,16 @@ export default function Dashboard({
   const monthDate      = new Date(`${monthStr}-01`)
   const prevMonthStr   = format(subMonths(monthDate, 1), 'yyyy-MM')
   const nextMonthStr   = format(addMonths(monthDate, 1), 'yyyy-MM')
-  const isCurrentMonth = monthStr === format(new Date(), 'yyyy-MM')
+  const today          = new Date()
+  const isCurrentMonth = monthStr === format(today, 'yyyy-MM')
+
+  // Linear forecast: only meaningful for the current month
+  const daysElapsed = today.getDate()
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+  const forecast = useMemo(
+    () => (isCurrentMonth && daysElapsed > 0 ? (total / daysElapsed) * daysInMonth : null),
+    [isCurrentMonth, total, daysElapsed, daysInMonth]
+  )
 
   const toggleSortDir = useCallback(() => setSortDir(d => d === 'desc' ? 'asc' : 'desc'), [])
   const toggleComparison = useCallback(() => setShowComparison(s => !s), [])
@@ -174,7 +183,14 @@ export default function Dashboard({
 
           {/* Left column: analytics */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:sticky lg:top-[7.5rem]">
-            <OverviewCard total={total} prevTotal={prevTotal} monthLabel={monthLabel} />
+            <OverviewCard
+              total={total}
+              prevTotal={prevTotal}
+              monthLabel={monthLabel}
+              forecast={forecast}
+              daysElapsed={daysElapsed}
+              daysInMonth={daysInMonth}
+            />
             <PaidByCard data={paidByData} />
             <CategoryCard data={categoryData} showComparison={showComparison} onToggleComparison={toggleComparison} />
             <DailyTrendCard data={trendData} />

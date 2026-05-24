@@ -6,9 +6,12 @@ type Props = {
   total: number
   prevTotal: number
   monthLabel: string
+  forecast: number | null   // null when not applicable (past/future month)
+  daysElapsed: number
+  daysInMonth: number
 }
 
-function OverviewCardInner({ total, prevTotal, monthLabel }: Props) {
+function OverviewCardInner({ total, prevTotal, monthLabel, forecast, daysElapsed, daysInMonth }: Props) {
   const diff = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : null
   const up = diff !== null && diff > 0
 
@@ -33,6 +36,20 @@ function OverviewCardInner({ total, prevTotal, monthLabel }: Props) {
           <span className="text-xs text-mutedDim">{monthLabel}</span>
         )}
       </div>
+
+      {forecast !== null && (
+        <div className="flex items-baseline gap-2 mt-2 pt-2 border-t border-divider/50">
+          <span className="text-[10px] uppercase tracking-wider text-mutedDim font-medium">
+            Month-end forecast
+          </span>
+          <span className="text-lg font-semibold text-muted tabular-nums">
+            ₹{Math.round(forecast).toLocaleString('en-IN')}
+          </span>
+          <span className="text-[10px] text-mutedDim ml-auto">
+            day {daysElapsed}/{daysInMonth}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
