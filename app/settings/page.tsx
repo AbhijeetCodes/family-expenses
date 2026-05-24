@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getSettings, type SettingsData } from '@/lib/settings'
 import BottomNav from '@/components/BottomNav'
 import SettingsSection from '@/components/SettingsSection'
+import SignOutButton from '@/components/SignOutButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,13 @@ export default async function SettingsPage() {
         {SECTIONS.map(s => (
           <SettingsSection key={s.key} column={s.key} label={s.label} values={settings[s.key]} />
         ))}
+        <div className="card flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-ink">Account</p>
+            <p className="text-xs text-mutedDim mt-0.5 truncate">{session.user?.email}</p>
+          </div>
+          <SignOutButton />
+        </div>
       </div>
       <BottomNav />
     </div>

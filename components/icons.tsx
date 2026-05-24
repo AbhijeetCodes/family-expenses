@@ -114,6 +114,55 @@ export function CategoryIcon({ category, size = 'md' }: CategoryIconProps) {
   )
 }
 
+/* -------- Category glyphs (clean per-category SVGs) -------- */
+
+type GlyphRule = { keywords: string[]; path: string }
+
+// 24x24 outline glyphs, stroked with currentColor. Order matters — first match wins.
+const GLYPHS: GlyphRule[] = [
+  { keywords: ['rent', 'housing', 'mortgage', 'lease'],
+    path: 'M3 11.5 12 4l9 7.5M5.25 10v9.25c0 .41.34.75.75.75H10v-5h4v5h4a.75.75 0 0 0 .75-.75V10' },
+  { keywords: ['health', 'medical', 'doctor', 'hospital', 'pharma', 'medicine', 'clinic'],
+    path: 'M9 3.75h6v5.25h5.25v6H15v5.25H9V15H3.75V9H9z' },
+  { keywords: ['grocery', 'groceries', 'supermarket', 'vegetable', 'fruit'],
+    path: 'M3 4.5h2.25l1.5 11.25a1.5 1.5 0 0 0 1.5 1.31h9a1.5 1.5 0 0 0 1.46-1.15l1.54-6.66H6.5M9.5 21a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm9 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z' },
+  { keywords: ['food', 'restaurant', 'dining', 'eat', 'meal', 'cafe', 'coffee', 'tea', 'snack'],
+    path: 'M7 3v8a2 2 0 0 0 2 2v8M9 3v8M5 3v8M16 3c-1.5 1.5-2 3.5-2 6s.5 4 2 4v8' },
+  { keywords: ['shopping', 'clothes', 'apparel', 'fashion', 'shoe', 'bag'],
+    path: 'M6 8h12l-1 12.25a1 1 0 0 1-1 .75H8a1 1 0 0 1-1-.75ZM9 8V6a3 3 0 0 1 6 0v2' },
+  { keywords: ['household', 'utility', 'utilities', 'electric', 'power', 'gas', 'water'],
+    path: 'M13.5 3 5 14h6l-1 7 8.5-11H12z' },
+  { keywords: ['transport', 'travel', 'taxi', 'fuel', 'petrol', 'car', 'uber', 'ola', 'cab', 'bus', 'metro', 'train', 'flight', 'plane'],
+    path: 'M5 16V11l1.5-4a1.5 1.5 0 0 1 1.4-1h8.2a1.5 1.5 0 0 1 1.4 1L19 11v5M5 16v2.25c0 .41.34.75.75.75h1.5a.75.75 0 0 0 .75-.75V16M5 16h14M19 16v2.25a.75.75 0 0 0 .75.75h1.5a.75.75 0 0 0 .75-.75V16M5 11h14M8 13.5h.01M16 13.5h.01' },
+  { keywords: ['entertainment', 'movie', 'film', 'netflix', 'ott', 'subscription', 'music', 'spotify'],
+    path: 'M3 5.5h18v13H3zM3 9h18M3 15h18M7 5.5v3M11 5.5v3M15 5.5v3M19 5.5v3M7 15v3.5M11 15v3.5M15 15v3.5M19 15v3.5' },
+  { keywords: ['bill', 'recharge', 'phone', 'internet', 'mobile'],
+    path: 'M5 3.5h14v17l-2.5-1.5L14 20.5l-2-1.5-2 1.5-2.5-1.5L5 20.5zM8.5 8h7M8.5 11.5h7M8.5 15h4' },
+  { keywords: ['gift', 'present'],
+    path: 'M4 9h16v3H4zM5 12h14v9H5zM12 9v12M9 9c-2 0-3-1-3-2.25S7.5 4.5 9 5.25 12 9 12 9s1.5-3 3-3.75S18 5.5 18 6.75 17 9 15 9' },
+  { keywords: ['education', 'school', 'book', 'tuition', 'class', 'course'],
+    path: 'M4 5.5a1.5 1.5 0 0 1 1.5-1.5H11v15.5H5.5A1.5 1.5 0 0 1 4 18ZM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15.5h5.5A1.5 1.5 0 0 0 20 18Z' },
+]
+
+const DEFAULT_GLYPH = 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm0 5v3l2 2'
+
+function glyphFor(category: string): string {
+  const c = (category || '').toLowerCase()
+  for (const rule of GLYPHS) {
+    if (rule.keywords.some(k => c.includes(k))) return rule.path
+  }
+  return DEFAULT_GLYPH
+}
+
+type CategoryGlyphProps = { category: string; className?: string }
+export function CategoryGlyph({ category, className = 'w-4 h-4' }: CategoryGlyphProps) {
+  return (
+    <svg {...svgProps} className={className} aria-hidden>
+      <path d={glyphFor(category)} />
+    </svg>
+  )
+}
+
 type AvatarBadgeProps = { initial: string; size?: 'sm' | 'md' }
 export function AvatarBadge({ initial, size = 'md' }: AvatarBadgeProps) {
   const color = colorForString(initial)

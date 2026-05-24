@@ -1,18 +1,7 @@
 'use client'
 
 import { memo } from 'react'
-import dynamic from 'next/dynamic'
-
-const ChartSkeleton = () => <div className="h-[240px] animate-pulse rounded-xl bg-surface2" />
-
-const CategoryPie = dynamic(() => import('../charts/CategoryPie'), {
-  loading: ChartSkeleton,
-  ssr: false,
-})
-const CategoryCompare = dynamic(() => import('../charts/CategoryCompare'), {
-  loading: ChartSkeleton,
-  ssr: false,
-})
+import CategoryBars from '../charts/CategoryBars'
 
 type Datum = { name: string; current: number; prev: number }
 type Props = {
@@ -36,9 +25,7 @@ function CategoryCardInner({ data, showComparison, onToggleComparison }: Props) 
           {showComparison ? '↕ vs last month' : 'vs last month'}
         </button>
       </div>
-      {showComparison
-        ? <CategoryCompare data={data} />
-        : <CategoryPie data={data.map(d => ({ name: d.name, value: d.current }))} />}
+      <CategoryBars data={data} showComparison={showComparison} />
     </div>
   )
 }

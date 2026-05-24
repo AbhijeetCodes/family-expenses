@@ -9,7 +9,6 @@ import OverviewCard from './cards/OverviewCard'
 import PaidByCard from './cards/PaidByCard'
 import CategoryCard from './cards/CategoryCard'
 import DailyTrendCard from './cards/DailyTrendCard'
-import SignOutButton from './SignOutButton'
 import FilterDropdown from './FilterDropdown'
 import { WalletIcon, PlusIcon } from './icons'
 
@@ -147,24 +146,21 @@ export default function Dashboard({
     <div className="min-h-screen bg-base pb-16 md:pb-0">
       {/* Header */}
       <header className="bg-surface border-b border-divider sticky top-0 z-30">
-        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <span className="font-bold text-ink flex items-center gap-2">
-              <WalletIcon className="w-5 h-5 text-accent" />
-              Expenses
-            </span>
-            <div className="flex items-center gap-0.5">
-              <Link href={`/?month=${prevMonthStr}`} className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface2 transition-colors text-lg">‹</Link>
-              <span className="text-ink font-medium text-sm px-2 min-w-[110px] text-center">{monthLabel}</span>
-              <Link href={`/?month=${nextMonthStr}`} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${isCurrentMonth ? 'text-mutedDim/40 pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}>›</Link>
-            </div>
+        <div className="relative max-w-[1400px] mx-auto px-4 h-14 flex items-center">
+          <span className="font-bold text-ink flex items-center gap-2 z-10">
+            <WalletIcon className="w-5 h-5 text-accent" />
+            Expenses
+          </span>
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5">
+            <Link href={`/?month=${prevMonthStr}`} className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface2 transition-colors text-lg">‹</Link>
+            <span className="text-ink font-medium text-sm px-2 min-w-[110px] text-center">{monthLabel}</span>
+            <Link href={`/?month=${nextMonthStr}`} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${isCurrentMonth ? 'text-mutedDim/40 pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}>›</Link>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/add" className="hidden md:flex items-center gap-1.5 bg-accent hover:bg-accent-2 text-base font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors">
+          <div className="ml-auto hidden md:flex items-center gap-3 z-10">
+            <Link href="/add" className="flex items-center gap-1.5 bg-accent hover:bg-accent-2 text-base font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors">
               <PlusIcon className="w-4 h-4" /> Add Expense
             </Link>
-            <span className="text-sm text-muted hidden md:block">{userName}</span>
-            <SignOutButton />
+            <span className="text-sm text-muted">{userName}</span>
           </div>
         </div>
       </header>
