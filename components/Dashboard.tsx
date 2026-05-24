@@ -40,7 +40,7 @@ export default function Dashboard({
   const [excludedModes,   setExcludedModes]   = useState<Set<string>>(new Set())
   const [excludedPaidBy,  setExcludedPaidBy]  = useState<Set<string>>(new Set())
   const [excludedTags,    setExcludedTags]    = useState<Set<string>>(new Set())
-  const [excludeOneTime,  setExcludeOneTime]  = useState(false)
+  const [excludeOneTime,  setExcludeOneTime]  = useState(true)
 
   const [showComparison, setShowComparison] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('date')

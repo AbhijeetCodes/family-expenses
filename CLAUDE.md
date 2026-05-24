@@ -18,7 +18,7 @@ After any change: `git add -A && git commit -m "..." && git push` — Vercel aut
 
 Copy `.env.example` → `.env.local` before running. All 8 variables are required. See `.env.example` for where to find each value.
 
-`ALLOWED_EMAILS` is a comma-separated list of Google email addresses with access (e.g. `a@gmail.com,b@gmail.com`). Change it in Vercel's Environment Variables and redeploy to add/remove family members — no code change needed.
+`ALLOWED_EMAILS` is a comma-separated list of Google email addresses with access. Change it in Vercel's Environment Variables and redeploy to add/remove family members — no code change needed.
 
 ## Architecture
 
@@ -51,17 +51,59 @@ Column A (`Month`, e.g. `2026-05`) is auto-computed from the date on write. `row
 
 **`Settings` tab** — five columns (A–E): `ExpenseTypes`, `Apps`, `PaymentModes`, `PaidBy`, `Tags`. Each is an independent list; row 1 is the header. `lib/settings.ts` appends to the bottom on add, clears the cell (leaves a gap) on delete — `getSettings()` filters blanks so gaps are harmless.
 
+### Design tokens
+
+Defined in [tailwind.config.ts](tailwind.config.ts). Use these semantic tokens — do not introduce raw `slate-*`, `green-*`, `red-*` etc.
+
+| Token | Hex | Use |
+|---|---|---|
+| `base` | `#10121D` | Page background |
+| `surface` | `#1A1D2D` | Cards, sticky headers, dropdowns |
+| `surface2` | `#252836` | Hover/inner elements, input bg, pills |
+| `divider` | `#262A3D` | Borders, rule lines |
+| `accent` / `accent-2` | `#00D689` / `#00B575` | Primary CTA, brand, success |
+| `ink` / `muted` / `mutedDim` | `#FFFFFF` / `#94A3B8` / `#64748B` | Primary / secondary / tertiary text |
+| `up` / `down` | `#22C55E` / `#EF4444` | Positive / negative trends, destructive |
+
+Common utility classes in [app/globals.css](app/globals.css): `card`, `btn-primary`, `btn-secondary`, `input-field`, `label`, `page-header`, `pill`, `pill-default`, `pill-active`. Prefer these over inline className stacks for consistency.
+
 ### Dashboard architecture
 
-`app/page.tsx` is a thin server component: it fetches `thisMonthExpenses` and `prevMonthExpenses` from Sheets, then renders `<Dashboard>`. All aggregation (chart data, totals, filter application) happens client-side inside `components/Dashboard.tsx`.
+[app/page.tsx](app/page.tsx) is a thin server component: it fetches `thisMonthExpenses` and `prevMonthExpenses` from Sheets, then renders `<Dashboard>`. All aggregation happens client-side inside [components/Dashboard.tsx](components/Dashboard.tsx).
 
-`Dashboard.tsx` owns all interactive state:
-- **Five filter dropdowns** (Type, Paid By, App, Mode, Tags) — each is a `Set<string>`; empty set = show all, non-empty = show only matching. The same filter state drives both the Overview charts and the Transactions list.
-- **`excludeOneTime` toggle** — also shared across both tabs.
-- **Sort state** (`sortKey`, `sortDir`) — only applies to the Transactions tab.
-- **`showComparison` toggle** — switches the category donut to a grouped bar (`CategoryCompare`).
+**Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is a 2×2 analytics card grid, right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column with a FAB. No tabs.
 
-`FilterDropdown.tsx` is a self-contained multi-select checkbox dropdown. Pass `selected: Set<string>` and `onChange`; it manages its own open/close state with a mousedown-outside listener.
+**State owned by Dashboard:**
+- Five filter Sets (`excludedTypes`, `excludedApps`, `excludedModes`, `excludedPaidBy`, `excludedTags`) — **inverted logic**: empty = show everything, non-empty = those values are hidden. Filter dropdowns default to all items checked; unchecking hides.
+- `excludeOneTime` boolean
+- `showComparison` (toggles `CategoryCard` between pie and grouped bars)
+- `sortKey`, `sortDir` for the transaction list
+
+Filter state drives both analytics cards and the transaction list — all share the same `filtered` derivation.
+
+### Card components ([components/cards/](components/cards/))
+
+All cards are wrapped in `React.memo` so toggling a filter only re-renders cards whose data props actually changed. The Dashboard passes pre-computed memoized data via `useMemo`, and handlers via `useCallback`, so referential identity is preserved across renders.
+
+- `OverviewCard` — total + trend pill + month-end linear forecast (only shown when viewing the current month: `(total / day-of-month) * days-in-month`)
+- `PaidByCard` — custom horizontal progress bars + avatar pile (no Recharts; faster, matches mockup)
+- `CategoryCard` — wraps `CategoryPie` or `CategoryCompare` based on `showComparison`
+- `DailyTrendCard` — wraps `DailyTrend`
+- `TransactionList` — virtualized list (see below)
+
+### Charts ([components/charts/](components/charts/))
+
+All Recharts components have `isAnimationActive={false}` — animations are expensive at every filter change. Use CSS transitions on chart containers instead if needed.
+
+`CategoryPie` groups any slice representing **less than 4%** of total spend into a single gray "Other" bucket. This prevents DOM bloat when a month has many small categories.
+
+Chart colors come from `colorForString()` in [components/icons.tsx](components/icons.tsx) — a deterministic hash → 8-color palette. The same function colors `CategoryIcon`, `AvatarBadge`, and `PaidByCard` bars, so a category looks consistent across the whole UI.
+
+### Virtualized transaction list
+
+[components/cards/TransactionList.tsx](components/cards/TransactionList.tsx) uses `react-window` `FixedSizeList` with 72px rows. Below `VIRTUALIZE_THRESHOLD` (30) it falls back to a plain divided list — virtualization overhead isn't worth it for short lists. Container height is measured with `ResizeObserver` so the sidebar fills available vertical space without a fixed-px hack.
+
+Individual row component (`Row`) is also `memo`-wrapped — keeps scroll smooth on large lists.
 
 ### Pages & rendering
 

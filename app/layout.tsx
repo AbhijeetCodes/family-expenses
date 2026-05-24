@@ -6,15 +6,22 @@ export const metadata: Metadata = {
   title: 'Family Expenses',
   description: 'Private family expense tracker',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon.png', type: 'image/png', sizes: '32x32' },
+      { url: '/icons/icon-192.png', type: 'image/png', sizes: '192x192' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
+  },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent',
     title: 'Expenses',
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#16a34a',
+  themeColor: '#10121D',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -23,9 +30,6 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
       <body className="bg-base text-ink min-h-screen">
         <SessionProvider>{children}</SessionProvider>
       </body>
