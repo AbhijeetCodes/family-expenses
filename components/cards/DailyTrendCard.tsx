@@ -8,13 +8,13 @@ const DailyTrend = dynamic(() => import('../charts/DailyTrend'), {
   ssr: false,
 })
 
-type Props = { data: { day: string; amount: number }[] }
+type Props = { data: { day: string; amount: number }[]; onSelectDay?: (day: string) => void }
 
-function DailyTrendCardInner({ data }: Props) {
+function DailyTrendCardInner({ data, onSelectDay }: Props) {
   return (
     <div className="card flex flex-col">
       <p className="label mb-2">Daily Spending</p>
-      <DailyTrend data={data} />
+      <DailyTrend data={data} onSelectDay={onSelectDay} />
     </div>
   )
 }
