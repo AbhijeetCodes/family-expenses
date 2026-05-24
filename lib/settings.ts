@@ -27,7 +27,10 @@ export async function getSettings(): Promise<SettingsData> {
   })
   const rows = (res.data.values ?? []) as string[][]
   const extract = (colIdx: number) =>
-    rows.slice(1).map(r => r[colIdx] ?? '').filter(Boolean)
+    rows.slice(1)
+      .map(r => r[colIdx] ?? '')
+      .filter(Boolean)
+      .sort((a, b) => a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase()))
 
   return {
     expenseTypes: extract(COLS.expenseTypes),
@@ -38,22 +41,88 @@ export async function getSettings(): Promise<SettingsData> {
   }
 }
 
+// Internal: read the Settings tab as a 2D array (preserves sheet row order so we
+// know where to append). Returns an empty 2D shape if the tab is empty.
+async function readSettingsRaw(): Promise<string[][]> {
+  const sheets = getSheetsClient()
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SETTINGS_TAB}!A:E`,
+  })
+  return (res.data.values ?? []) as string[][]
+}
+
+function nextAppendRow(rows: string[][], colIdx: number): number {
+  // 1-based row index of the first empty cell in this column, accounting for header.
+  // We scan rows[1..] (data rows) to find the last non-empty cell, then return that + 2.
+  let lastNonEmpty = 0 // 0 means only header present (or nothing)
+  for (let i = 1; i < rows.length; i++) {
+    if ((rows[i]?.[colIdx] ?? '').trim() !== '') lastNonEmpty = i
+  }
+  return lastNonEmpty + 2 // +1 because rows is 0-indexed; +1 to move to the next empty row
+}
+
+function columnLetter(colIdx: number): string {
+  return String.fromCharCode(65 + colIdx)
+}
+
 export async function addSettingValue(
   column: keyof typeof COLS,
   value: string
 ): Promise<void> {
-  const settings = await getSettings()
-  const current = settings[column]
-  if (current.map(s => s.toLowerCase()).includes(value.toLowerCase())) return
+  await addSettingValues([{ column, value }])
+}
+
+/**
+ * Idempotently append one or more (column, value) pairs to the Settings tab.
+ * - Single read of the tab, then a single batchUpdate write.
+ * - Case-insensitive dedup against existing values.
+ * - Handles same-call duplicates (e.g. two entries adding "Coffee" to the same column).
+ */
+export async function addSettingValues(
+  entries: { column: keyof typeof COLS; value: string }[]
+): Promise<void> {
+  const clean = entries
+    .map(e => ({ column: e.column, value: (e.value ?? '').trim() }))
+    .filter(e => e.value !== '')
+  if (!clean.length) return
+
+  const rows = await readSettingsRaw()
+
+  // Build a working view of existing lowercase values per column
+  const existing: Record<string, Set<string>> = {}
+  for (const key of Object.keys(COLS) as (keyof typeof COLS)[]) {
+    const idx = COLS[key]
+    existing[key] = new Set(
+      rows.slice(1)
+        .map(r => (r[idx] ?? '').trim().toLowerCase())
+        .filter(Boolean)
+    )
+  }
+
+  // Track next append row per column as we plan writes
+  const nextRowFor: Record<string, number> = {}
+  for (const key of Object.keys(COLS) as (keyof typeof COLS)[]) {
+    nextRowFor[key] = nextAppendRow(rows, COLS[key])
+  }
+
+  const updates: { range: string; values: string[][] }[] = []
+  for (const { column, value } of clean) {
+    const lcv = value.toLowerCase()
+    if (existing[column].has(lcv)) continue
+    existing[column].add(lcv) // prevent same-call duplicates
+    const letter = columnLetter(COLS[column])
+    const row = nextRowFor[column]
+    updates.push({ range: `${SETTINGS_TAB}!${letter}${row}`, values: [[value]] })
+    nextRowFor[column] = row + 1
+  }
+
+  if (!updates.length) return
 
   const sheets = getSheetsClient()
-  const colLetter = String.fromCharCode(65 + COLS[column]) // A=0, B=1 ...
-  const nextRow = current.length + 2 // +1 for header, +1 for next empty row
-  await sheets.spreadsheets.values.update({
+  await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SHEET_ID,
-    range: `${SETTINGS_TAB}!${colLetter}${nextRow}`,
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [[value]] },
+    requestBody: { valueInputOption: 'USER_ENTERED', data: updates },
   })
 }
 

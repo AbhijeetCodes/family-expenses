@@ -112,10 +112,18 @@ export default function ExpenseForm({ settings, existing }: Props) {
       {/* Expense Type */}
       <div>
         <label className="label">Expense Type</label>
-        <select value={form.expenseType} onChange={e => set('expenseType', e.target.value)} className="input-field">
-          <option value="">Select type</option>
-          {settings.expenseTypes.map(t => <option key={t}>{t}</option>)}
-        </select>
+        <input
+          type="text"
+          list="dl-expense-types"
+          value={form.expenseType}
+          onChange={e => set('expenseType', e.target.value)}
+          className="input-field"
+          placeholder="Grocery, Food, Health…"
+          autoComplete="off"
+        />
+        <datalist id="dl-expense-types">
+          {settings.expenseTypes.map(t => <option key={t} value={t} />)}
+        </datalist>
       </div>
 
       {/* Paid By */}
@@ -130,19 +138,35 @@ export default function ExpenseForm({ settings, existing }: Props) {
       {/* App */}
       <div>
         <label className="label">App / Platform (optional)</label>
-        <select value={form.app} onChange={e => set('app', e.target.value)} className="input-field">
-          <option value="">None</option>
-          {settings.apps.map(a => <option key={a}>{a}</option>)}
-        </select>
+        <input
+          type="text"
+          list="dl-apps"
+          value={form.app}
+          onChange={e => set('app', e.target.value)}
+          className="input-field"
+          placeholder="Amazon, Zomato, BB…"
+          autoComplete="off"
+        />
+        <datalist id="dl-apps">
+          {settings.apps.map(a => <option key={a} value={a} />)}
+        </datalist>
       </div>
 
       {/* Payment Mode */}
       <div>
         <label className="label">Payment Mode (optional)</label>
-        <select value={form.paymentMode} onChange={e => set('paymentMode', e.target.value)} className="input-field">
-          <option value="">Select mode</option>
-          {settings.paymentModes.map(m => <option key={m}>{m}</option>)}
-        </select>
+        <input
+          type="text"
+          list="dl-payment-modes"
+          value={form.paymentMode}
+          onChange={e => set('paymentMode', e.target.value)}
+          className="input-field"
+          placeholder="UPI, Card, Cash…"
+          autoComplete="off"
+        />
+        <datalist id="dl-payment-modes">
+          {settings.paymentModes.map(m => <option key={m} value={m} />)}
+        </datalist>
       </div>
 
       {/* One-time toggle */}
