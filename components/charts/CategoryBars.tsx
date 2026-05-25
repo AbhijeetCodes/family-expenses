@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from 'react'
 import { CategoryGlyph, colorForString } from '../icons'
+import { formatINR } from '@/lib/format'
 
 const OTHER_THRESHOLD = 0.04 // 4% — bucket tiny slices into "Other" for clarity
 
@@ -27,13 +28,22 @@ function bucketSmall(rows: Row[]): Row[] {
 }
 
 function fmt(n: number) {
-  return `₹${Math.round(n).toLocaleString('en-IN')}`
+  return `₹${formatINR(Math.round(n))}`
 }
 
 function CategoryBarsInner({ data, showComparison }: Props) {
-  const rows = useMemo(() => bucketSmall(data), [data])
-  const total = useMemo(() => rows.reduce((s, r) => s + r.current, 0), [rows])
-  const max = useMemo(() => Math.max(1, ...rows.map(r => r.current)), [rows])
+  // Single pass — bucket tiny slices, accumulate total + max — avoids two
+  // dependent useMemo recomputes when rows changes.
+  const { rows, total, max } = useMemo(() => {
+    const rows = bucketSmall(data)
+    let total = 0
+    let max = 1
+    for (const r of rows) {
+      total += r.current
+      if (r.current > max) max = r.current
+    }
+    return { rows, total, max }
+  }, [data])
 
   if (!rows.length || total === 0) {
     return <p className="text-center text-sm text-mutedDim py-8">No data</p>

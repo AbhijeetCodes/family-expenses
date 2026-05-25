@@ -37,31 +37,54 @@ function assertValidRowIndex(rowIndex: number): void {
   if (!Number.isInteger(rowIndex) || rowIndex < 2) throw new Error('Invalid rowIndex')
 }
 
-// Auto-promote any freeform Type / App / Mode the user typed into the form so it
-// shows up as a datalist suggestion next time. PaidBy and Tags stay curated.
-async function promoteLookupValues(data: Omit<Expense, 'rowIndex'>) {
-  await addSettingValues([
-    { column: 'expenseTypes', value: data.expenseType },
-    { column: 'apps',         value: data.app },
-    { column: 'paymentModes', value: data.paymentMode },
-  ])
+// Auto-promote any freeform Type / App / Mode the user typed that wasn't
+// already a known datalist value, so it appears as a suggestion next time.
+// PaidBy and Tags stay curated.
+//
+// `newLookups` is a pre-filtered set computed client-side from the existing
+// settings — empty when the user picked existing datalist values, in which
+// case we skip the Settings read+write entirely.
+type NewLookups = Partial<Pick<Expense, 'expenseType' | 'app' | 'paymentMode'>>
+
+async function promoteLookupValues(values: NewLookups) {
+  const entries: { column: 'expenseTypes' | 'apps' | 'paymentModes'; value: string }[] = []
+  if (values.expenseType) entries.push({ column: 'expenseTypes', value: values.expenseType })
+  if (values.app)         entries.push({ column: 'apps',         value: values.app })
+  if (values.paymentMode) entries.push({ column: 'paymentModes', value: values.paymentMode })
+  if (!entries.length) return
+  await addSettingValues(entries)
 }
 
-export async function createExpenseAction(data: Omit<Expense, 'rowIndex'>) {
+export async function createExpenseAction(
+  data: Omit<Expense, 'rowIndex'>,
+  newLookups: NewLookups = {},
+) {
   await requireAuth()
   validateExpenseData(data)
-  await Promise.all([addExpense(data), promoteLookupValues(data)])
+  const hasNewLookups = !!(newLookups.expenseType || newLookups.app || newLookups.paymentMode)
+  await Promise.all([
+    addExpense(data),
+    hasNewLookups ? promoteLookupValues(newLookups) : Promise.resolve(),
+  ])
   invalidateExpensesCache()
-  invalidateSettingsCache()
+  if (hasNewLookups) invalidateSettingsCache()
 }
 
-export async function updateExpenseAction(rowIndex: number, data: Omit<Expense, 'rowIndex'>) {
+export async function updateExpenseAction(
+  rowIndex: number,
+  data: Omit<Expense, 'rowIndex'>,
+  newLookups: NewLookups = {},
+) {
   await requireAuth()
   validateExpenseData(data)
   assertValidRowIndex(rowIndex)
-  await Promise.all([updateExpense(rowIndex, data), promoteLookupValues(data)])
+  const hasNewLookups = !!(newLookups.expenseType || newLookups.app || newLookups.paymentMode)
+  await Promise.all([
+    updateExpense(rowIndex, data),
+    hasNewLookups ? promoteLookupValues(newLookups) : Promise.resolve(),
+  ])
   invalidateExpensesCache()
-  invalidateSettingsCache()
+  if (hasNewLookups) invalidateSettingsCache()
 }
 
 export async function deleteExpenseAction(rowIndex: number) {

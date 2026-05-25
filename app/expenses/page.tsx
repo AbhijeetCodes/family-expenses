@@ -1,9 +1,10 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getAllExpenses } from '@/lib/expenses'
-import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import BottomNav from '@/components/BottomNav'
 import HistoryView from '@/components/HistoryView'
+import { filterByMonth } from '@/lib/date'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,13 +19,9 @@ export default async function ExpensesPage({
   const { month } = await searchParams
   const monthStr = month ?? format(new Date(), 'yyyy-MM')
   const monthDate = new Date(`${monthStr}-01`)
-  const interval = { start: startOfMonth(monthDate), end: endOfMonth(monthDate) }
 
   const all = await getAllExpenses()
-  const monthExpenses = all.filter(e => {
-    if (!e.date) return false
-    try { return isWithinInterval(parseISO(e.date), interval) } catch { return false }
-  })
+  const monthExpenses = filterByMonth(all, monthStr)
 
   return (
     <>

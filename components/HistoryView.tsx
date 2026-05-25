@@ -1,19 +1,15 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import { format, subMonths, addMonths } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import FilterDropdown from './FilterDropdown'
 import TransactionList from './TransactionList'
-
-type SortKey = 'date' | 'cost' | 'name'
-type SortDir = 'desc' | 'asc'
-
-function unique(arr: string[]) {
-  return [...new Set(arr.filter(Boolean))].sort()
-}
+import { unique } from '@/lib/utils'
+import { formatINR } from '@/lib/format'
+import type { SortKey } from '@/lib/types'
+import { useFilterParams } from '@/lib/useFilterParams'
 
 type Props = {
   monthExpenses: Expense[]
@@ -22,19 +18,15 @@ type Props = {
 }
 
 export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Props) {
-  const searchParams = useSearchParams()
-  const [selectedDate, setSelectedDate] = useState<string | null>(searchParams.get('date'))
-
-  // Filter state — same shape as Dashboard, INDEPENDENT from it
-  const [excludedTypes, setExcludedTypes]   = useState<Set<string>>(new Set())
-  const [excludedApps, setExcludedApps]     = useState<Set<string>>(new Set())
-  const [excludedModes, setExcludedModes]   = useState<Set<string>>(new Set())
-  const [excludedPaidBy, setExcludedPaidBy] = useState<Set<string>>(new Set())
-  const [excludedTags, setExcludedTags]     = useState<Set<string>>(new Set())
-  const [excludeOneTime, setExcludeOneTime] = useState(false)
-
-  const [sortKey, setSortKey] = useState<SortKey>('date')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  // URL-backed filters: shared schema with Dashboard so toggling on either
+  // page persists when you cross between them. HistoryView defaults to
+  // *not* hiding one-time expenses (the page is meant to show everything).
+  const {
+    excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags,
+    excludeOneTime, sortKey, sortDir, selectedDate,
+    setExcludedTypes, setExcludedApps, setExcludedModes, setExcludedPaidBy, setExcludedTags,
+    setExcludeOneTime, setSortKey, toggleSortDir, setSelectedDate, clearAll,
+  } = useFilterParams({ excludeOneTime: false, sortKey: 'date', sortDir: 'desc' })
 
   const allTypes  = useMemo(() => unique(monthExpenses.map(e => e.expenseType)), [monthExpenses])
   const allApps   = useMemo(() => unique(monthExpenses.map(e => e.app)), [monthExpenses])
@@ -46,16 +38,23 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
     excludedTypes.size + excludedApps.size + excludedModes.size +
     excludedPaidBy.size + excludedTags.size + (excludeOneTime ? 1 : 0)
 
-  const filtered = useMemo(() => monthExpenses.filter(e => {
-    if (selectedDate && e.date !== selectedDate)      return false
-    if (excludedTypes.has(e.expenseType))             return false
-    if (excludedApps.has(e.app))                      return false
-    if (excludedModes.has(e.paymentMode))             return false
-    if (excludedPaidBy.has(e.paidBy))                 return false
-    if (e.tags.some(t => excludedTags.has(t)))        return false
-    if (excludeOneTime && e.oneTime)                  return false
-    return true
-  }), [monthExpenses, selectedDate, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
+  // Single-pass filter + total (was filter+reduce — two passes).
+  const { filtered, total } = useMemo(() => {
+    const out: Expense[] = []
+    let sum = 0
+    for (const e of monthExpenses) {
+      if (selectedDate && e.date !== selectedDate)      continue
+      if (excludedTypes.has(e.expenseType))             continue
+      if (excludedApps.has(e.app))                      continue
+      if (excludedModes.has(e.paymentMode))             continue
+      if (excludedPaidBy.has(e.paidBy))                 continue
+      if (e.tags.some(t => excludedTags.has(t)))        continue
+      if (excludeOneTime && e.oneTime)                  continue
+      out.push(e)
+      sum += e.cost
+    }
+    return { filtered: out, total: sum }
+  }, [monthExpenses, selectedDate, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -67,19 +66,10 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
     })
   }, [filtered, sortKey, sortDir])
 
-  const total = filtered.reduce((s, e) => s + e.cost, 0)
-
   const monthDate    = new Date(`${monthStr}-01`)
   const prevMonthStr = format(subMonths(monthDate, 1), 'yyyy-MM')
   const nextMonthStr = format(addMonths(monthDate, 1), 'yyyy-MM')
   const isCurrentMonth = monthStr === format(new Date(), 'yyyy-MM')
-
-  const clearAll = useCallback(() => {
-    setExcludedTypes(new Set()); setExcludedApps(new Set()); setExcludedModes(new Set())
-    setExcludedPaidBy(new Set()); setExcludedTags(new Set()); setExcludeOneTime(false)
-  }, [])
-
-  const toggleSortDir = useCallback(() => setSortDir(d => d === 'desc' ? 'asc' : 'desc'), [])
 
   return (
     <div className="min-h-screen pb-24">
@@ -108,7 +98,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
           <div className="w-px h-4 bg-divider mx-0.5" />
 
           <button
-            onClick={() => setExcludeOneTime(v => !v)}
+            onClick={() => setExcludeOneTime(!excludeOneTime)}
             className={`pill ${excludeOneTime ? '!bg-down/15 !text-down !border-down/30' : 'pill-default'}`}
           >
             {excludeOneTime ? '✕ one-time excluded' : 'Exclude one-time'}
@@ -135,7 +125,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
             )}
           </span>
           <span className="font-bold text-accent text-base tabular-nums">
-            ₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            ₹{formatINR(total)}
           </span>
           {selectedDate && (
             <button

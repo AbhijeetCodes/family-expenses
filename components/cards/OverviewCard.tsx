@@ -1,6 +1,7 @@
 'use client'
 
 import { memo } from 'react'
+import { formatINR } from '@/lib/format'
 
 type Props = {
   total: number
@@ -19,7 +20,7 @@ function OverviewCardInner({ total, prevTotal, monthLabel, forecast, daysElapsed
     <div className="card flex flex-col gap-2">
       <p className="label mb-0">Overview</p>
       <p className="text-4xl md:text-5xl font-bold text-ink leading-none tracking-tight">
-        ₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+        ₹{formatINR(total)}
       </p>
       <div className="flex items-center gap-2 mt-1">
         {diff !== null ? (
@@ -43,7 +44,7 @@ function OverviewCardInner({ total, prevTotal, monthLabel, forecast, daysElapsed
             Month-end forecast
           </span>
           <span className="text-lg font-semibold text-muted tabular-nums">
-            ₹{Math.round(forecast).toLocaleString('en-IN')}
+            ₹{formatINR(Math.round(forecast))}
           </span>
           <span className="text-[10px] text-mutedDim ml-auto">
             day {daysElapsed}/{daysInMonth}

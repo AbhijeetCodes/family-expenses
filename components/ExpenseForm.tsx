@@ -40,37 +40,57 @@ export default function ExpenseForm({ settings, existing }: Props) {
     set('tags', form.tags.includes(tag) ? form.tags.filter(t => t !== tag) : [...form.tags, tag])
   }
 
+  // Compute which freeform lookup values are NEW (not already in settings) —
+  // case-insensitive. Only the new ones get sent to promoteLookupValues, so
+  // datalist picks (the common case) skip the Settings read+write entirely.
+  function computeNewLookups() {
+    const has = (list: string[], v: string) =>
+      !v || list.some(x => x.toLowerCase() === v.toLowerCase())
+    return {
+      expenseType: has(settings.expenseTypes, form.expenseType) ? undefined : form.expenseType,
+      app:         has(settings.apps,         form.app)         ? undefined : form.app,
+      paymentMode: has(settings.paymentModes, form.paymentMode) ? undefined : form.paymentMode,
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) return setError('Name is required')
     if (!form.cost || form.cost <= 0) return setError('Enter a valid cost')
     if (!form.paidBy) return setError('Select who paid')
     setError('')
-    router.push('/')
+    const newLookups = computeNewLookups()
+    // Await the action BEFORE navigating: yes, costs ~300ms of "Saving…"
+    // perceived latency, but eliminates the "land on stale dashboard then it
+    // pops" flash the old fire-and-navigate flow created.
     startTransition(async () => {
       try {
         if (existing) {
-          await updateExpenseAction(existing.rowIndex, form)
+          await updateExpenseAction(existing.rowIndex, form, newLookups)
         } else {
-          await createExpenseAction(form)
+          await createExpenseAction(form, newLookups)
         }
+        router.push('/')
+        router.refresh()
       } catch (err) {
         console.error('Save failed', err)
+        setError('Save failed — please try again.')
       }
-      router.refresh()
     })
   }
 
   async function handleDelete() {
     if (!existing) return
-    router.push('/expenses')
     startTransition(async () => {
       try {
         await deleteExpenseAction(existing.rowIndex)
+        router.push('/expenses')
+        router.refresh()
       } catch (err) {
         console.error('Delete failed', err)
+        setError('Delete failed — please try again.')
+        setShowDeleteConfirm(false)
       }
-      router.refresh()
     })
   }
 

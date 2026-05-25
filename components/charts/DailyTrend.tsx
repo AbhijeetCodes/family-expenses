@@ -2,6 +2,7 @@
 
 import { memo } from 'react'
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts'
+import { formatINR } from '@/lib/format'
 
 const tooltipStyle = { backgroundColor: '#1A1D2D', border: '1px solid #262A3D', borderRadius: 8 }
 
@@ -20,7 +21,7 @@ function CustomTooltip({ active, payload, label, onSelectDay }: TooltipProps) {
     <div style={{ ...tooltipStyle, padding: '10px 14px' }}>
       <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 4 }}>{dayNum}</p>
       <p style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 600 }}>
-        Spent : ₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+        Spent : ₹{formatINR(amount)}
       </p>
       {onSelectDay && (
         <p style={{ color: '#00D689', fontSize: 11, marginTop: 6 }}>Click to filter →</p>

@@ -1,14 +1,23 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { AvatarBadge, colorForString } from '../icons'
+import { formatINR } from '@/lib/format'
 
 type Datum = { name: string; value: number }
 type Props = { data: Datum[] }
 
 function PaidByCardInner({ data }: Props) {
-  const total = data.reduce((s, d) => s + d.value, 0)
-  const max = data.reduce((m, d) => Math.max(m, d.value), 0)
+  // One pass for both totals — avoids two reduce loops per render.
+  const { total, max } = useMemo(() => {
+    let total = 0
+    let max = 0
+    for (const d of data) {
+      total += d.value
+      if (d.value > max) max = d.value
+    }
+    return { total, max }
+  }, [data])
 
   return (
     <div className="card flex flex-col gap-3">
@@ -42,7 +51,7 @@ function PaidByCardInner({ data }: Props) {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-ink tabular-nums">
-                    ₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    ₹{formatINR(d.value)}
                   </p>
                   <p className="text-[10px] text-mutedDim tabular-nums">{totalPct.toFixed(0)}%</p>
                 </div>

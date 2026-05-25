@@ -146,12 +146,21 @@ const GLYPHS: GlyphRule[] = [
 
 const DEFAULT_GLYPH = 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm0 5v3l2 2'
 
+// Memoise — `glyphFor` is called once per visible category and once per
+// transaction row on every render. Categories repeat a lot, so a tiny Map
+// turns an O(rules × keywords) scan into a single lowercase + lookup.
+const _glyphCache = new Map<string, string>()
+
 function glyphFor(category: string): string {
   const c = (category || '').toLowerCase()
+  const hit = _glyphCache.get(c)
+  if (hit !== undefined) return hit
+  let path = DEFAULT_GLYPH
   for (const rule of GLYPHS) {
-    if (rule.keywords.some(k => c.includes(k))) return rule.path
+    if (rule.keywords.some(k => c.includes(k))) { path = rule.path; break }
   }
-  return DEFAULT_GLYPH
+  _glyphCache.set(c, path)
+  return path
 }
 
 type CategoryGlyphProps = { category: string; className?: string }

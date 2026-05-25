@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import type { Expense } from '@/lib/expenses'
+import { formatINR } from '@/lib/format'
 
 type Props = {
   expenses: Expense[]
@@ -63,7 +64,7 @@ function TransactionListInner({
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-3">
               <div className="text-right">
-                <p className="font-semibold text-sm text-ink tabular-nums">₹{e.cost.toLocaleString('en-IN')}</p>
+                <p className="font-semibold text-sm text-ink tabular-nums">₹{formatINR(e.cost)}</p>
                 <p className="text-xs text-mutedDim">{e.paidBy}</p>
               </div>
               <span className={`${chevTone} group-hover:text-mutedDim transition-colors`}>›</span>

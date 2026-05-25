@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, memo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format, subMonths, addMonths } from 'date-fns'
@@ -12,6 +12,10 @@ import DailyTrendCard from './cards/DailyTrendCard'
 import FilterDropdown from './FilterDropdown'
 import TransactionList from './TransactionList'
 import { WalletIcon, PlusIcon } from './icons'
+import { unique } from '@/lib/utils'
+import type { SortKey, SortDir } from '@/lib/types'
+import { useMediaQuery } from '@/lib/useMediaQuery'
+import { useFilterParams } from '@/lib/useFilterParams'
 
 type Props = {
   thisMonthExpenses: Expense[]
@@ -21,9 +25,65 @@ type Props = {
   userName: string
 }
 
-function unique(arr: string[]) {
-  return [...new Set(arr.filter(Boolean))].sort()
+/**
+ * Header of the desktop transactions sidebar — count, selected-day chip, and
+ * sort controls. Pulled out so toggling filters that change `sortedCount` or
+ * `selectedDate` doesn't reconcile the (memoised) TransactionList below.
+ */
+type SidebarHeaderProps = {
+  sortedCount: number
+  totalCount: number
+  selectedDate: string | null
+  sortKey: SortKey
+  sortDir: SortDir
+  onClearSelectedDate: () => void
+  onChangeSortKey: (key: SortKey) => void
+  onToggleSortDir: () => void
 }
+const SidebarHeader = memo(function SidebarHeader({
+  sortedCount, totalCount, selectedDate, sortKey, sortDir,
+  onClearSelectedDate, onChangeSortKey, onToggleSortDir,
+}: SidebarHeaderProps) {
+  return (
+    <div className="px-4 py-3 border-b border-divider/60 flex items-center justify-between gap-3 shrink-0">
+      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+        <p className="text-sm font-semibold text-ink truncate">
+          {sortedCount}
+          {sortedCount !== totalCount && (
+            <span className="text-mutedDim font-normal"> of {totalCount}</span>
+          )}
+          <span className="text-muted font-normal"> transactions</span>
+        </p>
+        {selectedDate && (
+          <button
+            onClick={onClearSelectedDate}
+            className="pill pill-active !text-xs !py-0.5 !px-2 flex items-center gap-1 shrink-0"
+          >
+            Day {selectedDate.slice(8)} <span className="opacity-70">✕</span>
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-1 text-xs shrink-0">
+        <select
+          value={sortKey}
+          onChange={e => onChangeSortKey(e.target.value as SortKey)}
+          className="bg-surface2 border border-divider rounded-md text-ink text-xs py-1 px-1.5 focus:ring-accent focus:border-accent"
+        >
+          <option value="date">Date</option>
+          <option value="cost">Amount</option>
+          <option value="name">Name</option>
+        </select>
+        <button
+          onClick={onToggleSortDir}
+          className="text-muted hover:text-ink w-6 h-6 rounded hover:bg-surface2 flex items-center justify-center"
+          title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
+        >
+          {sortDir === 'desc' ? '↓' : '↑'}
+        </button>
+      </div>
+    </div>
+  )
+})
 
 export default function Dashboard({
   thisMonthExpenses,
@@ -33,17 +93,16 @@ export default function Dashboard({
   userName,
 }: Props) {
   const router = useRouter()
-  const [excludedTypes,   setExcludedTypes]   = useState<Set<string>>(new Set())
-  const [excludedApps,    setExcludedApps]    = useState<Set<string>>(new Set())
-  const [excludedModes,   setExcludedModes]   = useState<Set<string>>(new Set())
-  const [excludedPaidBy,  setExcludedPaidBy]  = useState<Set<string>>(new Set())
-  const [excludedTags,    setExcludedTags]    = useState<Set<string>>(new Set())
-  const [excludeOneTime,  setExcludeOneTime]  = useState(true)
-
-  // Desktop-only transactions sidebar
-  const [sortKey, setSortKey] = useState<'date' | 'cost' | 'name'>('date')
-  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  // All filter + sort + selectedDate state is URL-backed so it persists across
+  // /expenses ↔ / navigation and produces shareable links. Dashboard defaults
+  // to excludeOneTime=true (per CLAUDE.md — keeps rare big buys out of totals).
+  const f = useFilterParams({ excludeOneTime: true, sortKey: 'date', sortDir: 'desc' })
+  const {
+    excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags,
+    excludeOneTime, sortKey, sortDir, selectedDate,
+    setExcludedTypes, setExcludedApps, setExcludedModes, setExcludedPaidBy, setExcludedTags,
+    setExcludeOneTime, setSortKey, setSortDir, toggleSortDir, setSelectedDate, clearAll,
+  } = f
 
   const [showComparison, setShowComparison] = useState(false)
 
@@ -155,21 +214,17 @@ export default function Dashboard({
     [isCurrentMonth, total, daysElapsed, daysInMonth]
   )
 
-  const toggleComparison = useCallback(() => setShowComparison(s => !s), [])
-  const toggleSortDir    = useCallback(() => setSortDir(d => d === 'desc' ? 'asc' : 'desc'), [])
+  const toggleComparison    = useCallback(() => setShowComparison(s => !s), [])
+  const clearSelectedDate   = useCallback(() => setSelectedDate(null), [setSelectedDate])
 
-  const clearAllFilters = useCallback(() => {
-    setExcludedTypes(new Set()); setExcludedApps(new Set()); setExcludedModes(new Set())
-    setExcludedPaidBy(new Set()); setExcludedTags(new Set()); setExcludeOneTime(false)
-  }, [])
-
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
   const handleSelectDay = useCallback((day: string) => {
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-      setSelectedDate(prev => prev === day ? null : day)
+    if (isDesktop) {
+      setSelectedDate(selectedDate === day ? null : day)
     } else {
       router.push(`/expenses?month=${monthStr}&date=${day}`)
     }
-  }, [router, monthStr])
+  }, [router, monthStr, isDesktop, selectedDate, setSelectedDate])
 
   return (
     <div className="min-h-screen bg-base pb-16 md:pb-0">
@@ -209,7 +264,7 @@ export default function Dashboard({
             {excludeOneTime ? '✕ one-time excluded' : 'Exclude one-time'}
           </button>
           {totalActiveFilters > 0 && (
-            <button onClick={clearAllFilters} className="text-xs text-muted hover:text-ink transition-colors underline underline-offset-2 ml-auto">
+            <button onClick={clearAll} className="text-xs text-muted hover:text-ink transition-colors underline underline-offset-2 ml-auto">
               Clear all ({totalActiveFilters})
             </button>
           )}
@@ -236,44 +291,16 @@ export default function Dashboard({
 
           {/* Right (desktop only): transactions sidebar */}
           <aside className="hidden lg:flex card p-0 overflow-hidden flex-col lg:sticky lg:top-[7.5rem] lg:max-h-[calc(100vh-8.5rem)]">
-            {/* Header */}
-            <div className="px-4 py-3 border-b border-divider/60 flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                <p className="text-sm font-semibold text-ink truncate">
-                  {sortedExpenses.length}
-                  {sortedExpenses.length !== thisMonthExpenses.length && (
-                    <span className="text-mutedDim font-normal"> of {thisMonthExpenses.length}</span>
-                  )}
-                  <span className="text-muted font-normal"> transactions</span>
-                </p>
-                {selectedDate && (
-                  <button
-                    onClick={() => setSelectedDate(null)}
-                    className="pill pill-active !text-xs !py-0.5 !px-2 flex items-center gap-1 shrink-0"
-                  >
-                    Day {selectedDate.slice(8)} <span className="opacity-70">✕</span>
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-1 text-xs shrink-0">
-                <select
-                  value={sortKey}
-                  onChange={e => setSortKey(e.target.value as typeof sortKey)}
-                  className="bg-surface2 border border-divider rounded-md text-ink text-xs py-1 px-1.5 focus:ring-accent focus:border-accent"
-                >
-                  <option value="date">Date</option>
-                  <option value="cost">Amount</option>
-                  <option value="name">Name</option>
-                </select>
-                <button
-                  onClick={toggleSortDir}
-                  className="text-muted hover:text-ink w-6 h-6 rounded hover:bg-surface2 flex items-center justify-center"
-                  title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
-                >
-                  {sortDir === 'desc' ? '↓' : '↑'}
-                </button>
-              </div>
-            </div>
+            <SidebarHeader
+              sortedCount={sortedExpenses.length}
+              totalCount={thisMonthExpenses.length}
+              selectedDate={selectedDate}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onClearSelectedDate={clearSelectedDate}
+              onChangeSortKey={setSortKey}
+              onToggleSortDir={toggleSortDir}
+            />
 
             {/* List */}
             <div className="overflow-y-auto flex-1">
