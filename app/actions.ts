@@ -1,9 +1,8 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { addExpense, updateExpense, deleteExpense, getAllExpenses, invalidateExpensesCache, type Expense } from '@/lib/expenses'
+import { addExpense, updateExpense, deleteExpense, invalidateExpensesCache, type Expense } from '@/lib/expenses'
 import { addSettingValue, addSettingValues, deleteSettingValue, invalidateSettingsCache, type SettingsData } from '@/lib/settings'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 async function requireAuth() {
@@ -27,14 +26,15 @@ function validateExpenseData(data: Omit<Expense, 'rowIndex'>) {
 }
 
 /**
- * Verify the given rowIndex actually corresponds to an existing expense row.
- * Prevents an authenticated user from passing an arbitrary integer (e.g. 1 to
- * overwrite the header row, or any rowIndex to mutate another user's data).
+ * Cheap, sync check: rowIndex must be a positive integer >= 2 (row 1 is the
+ * header). Prevents an authenticated user from passing 1 (overwriting the
+ * header) or a negative/garbage value. We deliberately don't re-fetch the
+ * whole sheet to confirm the row exists: all ALLOWED_EMAILS users are
+ * trusted family members sharing one sheet, and the underlying Sheets API
+ * surfaces real out-of-range errors on delete.
  */
-async function requireValidRowIndex(rowIndex: number) {
+function assertValidRowIndex(rowIndex: number): void {
   if (!Number.isInteger(rowIndex) || rowIndex < 2) throw new Error('Invalid rowIndex')
-  const all = await getAllExpenses()
-  if (!all.find(e => e.rowIndex === rowIndex)) throw new Error('Expense not found')
 }
 
 // Auto-promote any freeform Type / App / Mode the user typed into the form so it
@@ -53,42 +53,32 @@ export async function createExpenseAction(data: Omit<Expense, 'rowIndex'>) {
   await Promise.all([addExpense(data), promoteLookupValues(data)])
   invalidateExpensesCache()
   invalidateSettingsCache()
-  revalidatePath('/')
-  revalidatePath('/expenses')
-  revalidatePath('/settings')
 }
 
 export async function updateExpenseAction(rowIndex: number, data: Omit<Expense, 'rowIndex'>) {
   await requireAuth()
   validateExpenseData(data)
-  await requireValidRowIndex(rowIndex)
+  assertValidRowIndex(rowIndex)
   await Promise.all([updateExpense(rowIndex, data), promoteLookupValues(data)])
   invalidateExpensesCache()
   invalidateSettingsCache()
-  revalidatePath('/')
-  revalidatePath('/expenses')
-  revalidatePath('/settings')
 }
 
 export async function deleteExpenseAction(rowIndex: number) {
   await requireAuth()
-  await requireValidRowIndex(rowIndex)
+  assertValidRowIndex(rowIndex)
   await deleteExpense(rowIndex)
   invalidateExpensesCache()
-  revalidatePath('/')
-  revalidatePath('/expenses')
 }
 
 export async function addSettingAction(column: keyof SettingsData, value: string) {
   await requireAuth()
   await addSettingValue(column, value)
   invalidateSettingsCache()
-  revalidatePath('/settings')
 }
 
 export async function deleteSettingAction(column: keyof SettingsData, value: string) {
   await requireAuth()
   await deleteSettingValue(column, value)
   invalidateSettingsCache()
-  revalidatePath('/settings')
 }

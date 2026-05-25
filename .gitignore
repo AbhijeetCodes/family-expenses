@@ -12,3 +12,4 @@ public/sw.js
 public/workbox-*.js
 .DS_Store
 next-env.d.ts
+*.tsbuildinfo

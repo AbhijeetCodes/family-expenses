@@ -3,6 +3,9 @@ import { format, parse, isValid } from 'date-fns'
 
 const CACHE_TTL_MS = 60_000
 let _expensesCache: { data: Expense[]; expiresAt: number } | null = null
+// Coalesces concurrent cache-miss fetches: the second caller awaits the
+// first's in-flight promise instead of firing a duplicate Sheets request.
+let _expensesInFlight: Promise<Expense[]> | null = null
 
 export function invalidateExpensesCache(): void {
   _expensesCache = null
@@ -87,16 +90,20 @@ function expenseToRow(e: Omit<Expense, 'rowIndex'>): string[] {
 
 export async function getAllExpenses(): Promise<Expense[]> {
   if (_expensesCache && Date.now() < _expensesCache.expiresAt) return _expensesCache.data
-  const sheets = getSheetsClient()
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: `${EXPENSES_TAB}!A:J`,
-  })
-  const rows = res.data.values ?? []
-  // Skip header row (row 1 → rowIndex 1, data starts at index 1 in array = rowIndex 2)
-  const data = rows.slice(1).map((row, i) => rowToExpense(row as string[], i + 2))
-  _expensesCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
-  return data
+  if (_expensesInFlight) return _expensesInFlight
+  _expensesInFlight = (async () => {
+    const sheets = getSheetsClient()
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${EXPENSES_TAB}!A:J`,
+    })
+    const rows = res.data.values ?? []
+    // Skip header row (row 1 → rowIndex 1, data starts at index 1 in array = rowIndex 2)
+    const data = rows.slice(1).map((row, i) => rowToExpense(row as string[], i + 2))
+    _expensesCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
+    return data
+  })().finally(() => { _expensesInFlight = null })
+  return _expensesInFlight
 }
 
 export async function addExpense(e: Omit<Expense, 'rowIndex'>): Promise<void> {

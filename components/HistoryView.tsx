@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { format, subMonths, addMonths } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import FilterDropdown from './FilterDropdown'
+import TransactionList from './TransactionList'
 
 type SortKey = 'date' | 'cost' | 'name'
 type SortDir = 'desc' | 'asc'
@@ -174,46 +175,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
           </div>
         ) : (
           <div className="card p-0 overflow-hidden">
-            <ul className="divide-y divide-divider/50">
-              {sorted.map(e => (
-                <li key={e.rowIndex}>
-                  <Link
-                    href={`/expenses/${e.rowIndex}`}
-                    className="flex items-center justify-between px-4 py-3.5 hover:bg-surface2/40 transition-colors group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-ink truncate">{e.name}</p>
-                        {e.oneTime && (
-                          <span className="text-[10px] uppercase tracking-wide bg-down/15 text-down border border-down/20 px-2 py-0.5 rounded-full shrink-0 font-medium">
-                            one-time
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-mutedDim mt-0.5">
-                        {e.expenseType}
-                        {e.app ? ` · ${e.app}` : ''} · {e.date.slice(5).replace('-', '/')}
-                        {e.paymentMode ? ` · ${e.paymentMode}` : ''}
-                      </p>
-                      {e.tags.length > 0 && (
-                        <div className="flex gap-1 mt-1 flex-wrap">
-                          {e.tags.map(t => (
-                            <span key={t} className="text-xs bg-surface2 text-muted rounded px-1.5 py-0.5">{t}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <div className="text-right">
-                        <p className="font-semibold text-sm text-ink tabular-nums">₹{e.cost.toLocaleString('en-IN')}</p>
-                        <p className="text-xs text-mutedDim">{e.paidBy}</p>
-                      </div>
-                      <span className="text-mutedDim/50 group-hover:text-mutedDim transition-colors">›</span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <TransactionList expenses={sorted} density="comfortable" dividerTone="standard" showTags />
           </div>
         )}
       </div>

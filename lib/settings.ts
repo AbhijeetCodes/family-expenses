@@ -10,6 +10,9 @@ export type SettingsData = {
 
 const CACHE_TTL_MS = 60_000
 let _settingsCache: { data: SettingsData; expiresAt: number } | null = null
+// Coalesces concurrent cache-miss fetches: second caller awaits the first's
+// in-flight promise instead of firing a duplicate Sheets request.
+let _settingsInFlight: Promise<SettingsData> | null = null
 
 export function invalidateSettingsCache(): void {
   _settingsCache = null
@@ -28,27 +31,31 @@ const COL_HEADERS = ['ExpenseTypes', 'Apps', 'PaymentModes', 'PaidBy', 'Tags']
 
 export async function getSettings(): Promise<SettingsData> {
   if (_settingsCache && Date.now() < _settingsCache.expiresAt) return _settingsCache.data
-  const sheets = getSheetsClient()
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: `${SETTINGS_TAB}!A:E`,
-  })
-  const rows = (res.data.values ?? []) as string[][]
-  const extract = (colIdx: number) =>
-    rows.slice(1)
-      .map(r => r[colIdx] ?? '')
-      .filter(Boolean)
-      .sort((a, b) => a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase()))
+  if (_settingsInFlight) return _settingsInFlight
+  _settingsInFlight = (async () => {
+    const sheets = getSheetsClient()
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SETTINGS_TAB}!A:E`,
+    })
+    const rows = (res.data.values ?? []) as string[][]
+    const extract = (colIdx: number) =>
+      rows.slice(1)
+        .map(r => r[colIdx] ?? '')
+        .filter(Boolean)
+        .sort((a, b) => a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase()))
 
-  const data: SettingsData = {
-    expenseTypes: extract(COLS.expenseTypes),
-    apps: extract(COLS.apps),
-    paymentModes: extract(COLS.paymentModes),
-    paidBy: extract(COLS.paidBy),
-    tags: extract(COLS.tags),
-  }
-  _settingsCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
-  return data
+    const data: SettingsData = {
+      expenseTypes: extract(COLS.expenseTypes),
+      apps: extract(COLS.apps),
+      paymentModes: extract(COLS.paymentModes),
+      paidBy: extract(COLS.paidBy),
+      tags: extract(COLS.tags),
+    }
+    _settingsCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
+    return data
+  })().finally(() => { _settingsInFlight = null })
+  return _settingsInFlight
 }
 
 // Internal: read the Settings tab as a 2D array (preserves sheet row order so we

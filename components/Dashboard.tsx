@@ -10,6 +10,7 @@ import PaidByCard from './cards/PaidByCard'
 import CategoryCard from './cards/CategoryCard'
 import DailyTrendCard from './cards/DailyTrendCard'
 import FilterDropdown from './FilterDropdown'
+import TransactionList from './TransactionList'
 import { WalletIcon, PlusIcon } from './icons'
 
 type Props = {
@@ -71,31 +72,59 @@ export default function Dashboard({
   const filtered     = useMemo(() => applyFilters(thisMonthExpenses), [applyFilters, thisMonthExpenses])
   const filteredPrev = useMemo(() => applyFilters(prevMonthExpenses), [applyFilters, prevMonthExpenses])
 
-  const total     = useMemo(() => filtered.reduce((s, e) => s + e.cost, 0), [filtered])
-  const prevTotal = useMemo(() => filteredPrev.reduce((s, e) => s + e.cost, 0), [filteredPrev])
+  // Single-pass aggregate of `filtered`: totals, by-category, by-day, by-person.
+  // Replaces 4 separate useMemo loops to cut hot-path work on filter toggles.
+  const currentAgg = useMemo(() => {
+    const cats: Record<string, number> = {}
+    const days: Record<string, number> = {}
+    const people: Record<string, number> = {}
+    let total = 0
+    for (const e of filtered) {
+      total += e.cost
+      const cat = e.expenseType || 'Other'
+      cats[cat] = (cats[cat] ?? 0) + e.cost
+      if (e.date) days[e.date] = (days[e.date] ?? 0) + e.cost
+      const who = e.paidBy || '?'
+      people[who] = (people[who] ?? 0) + e.cost
+    }
+    return { total, cats, days, people }
+  }, [filtered])
+
+  // Parallel one-pass over prev-month for total + category comparison.
+  const prevAgg = useMemo(() => {
+    const cats: Record<string, number> = {}
+    let total = 0
+    for (const e of filteredPrev) {
+      total += e.cost
+      const cat = e.expenseType || 'Other'
+      cats[cat] = (cats[cat] ?? 0) + e.cost
+    }
+    return { total, cats }
+  }, [filteredPrev])
+
+  const total     = currentAgg.total
+  const prevTotal = prevAgg.total
 
   const categoryData = useMemo(() => {
-    const curr: Record<string, number> = {}
-    const prev: Record<string, number> = {}
-    for (const e of filtered)     curr[e.expenseType || 'Other'] = (curr[e.expenseType || 'Other'] ?? 0) + e.cost
-    for (const e of filteredPrev) prev[e.expenseType || 'Other'] = (prev[e.expenseType || 'Other'] ?? 0) + e.cost
-    const names = new Set([...Object.keys(curr), ...Object.keys(prev)])
-    return [...names].map(n => ({ name: n, current: curr[n] ?? 0, prev: prev[n] ?? 0 }))
+    const names = new Set([...Object.keys(currentAgg.cats), ...Object.keys(prevAgg.cats)])
+    return [...names]
+      .map(n => ({ name: n, current: currentAgg.cats[n] ?? 0, prev: prevAgg.cats[n] ?? 0 }))
       .sort((a, b) => b.current - a.current)
-  }, [filtered, filteredPrev])
+  }, [currentAgg, prevAgg])
 
-  const trendData = useMemo(() => {
-    const byDay: Record<string, number> = {}
-    for (const e of filtered) if (e.date) byDay[e.date] = (byDay[e.date] ?? 0) + e.cost
-    return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b))
-      .map(([day, amount]) => ({ day, amount }))
-  }, [filtered])
+  const trendData = useMemo(
+    () => Object.entries(currentAgg.days)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, amount]) => ({ day, amount })),
+    [currentAgg]
+  )
 
-  const paidByData = useMemo(() => {
-    const byPerson: Record<string, number> = {}
-    for (const e of filtered) byPerson[e.paidBy || '?'] = (byPerson[e.paidBy || '?'] ?? 0) + e.cost
-    return Object.entries(byPerson).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  }, [filtered])
+  const paidByData = useMemo(
+    () => Object.entries(currentAgg.people)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
+    [currentAgg]
+  )
 
   const sidebarFiltered = useMemo(
     () => selectedDate ? filtered.filter(e => e.date === selectedDate) : filtered,
@@ -253,38 +282,7 @@ export default function Dashboard({
                   {totalActiveFilters > 0 ? 'No transactions match the current filters.' : 'No expenses this month'}
                 </p>
               ) : (
-                <ul className="divide-y divide-divider/40">
-                  {sortedExpenses.map(e => (
-                    <li key={e.rowIndex}>
-                      <Link
-                        href={`/expenses/${e.rowIndex}`}
-                        className="flex items-center justify-between px-4 py-3 hover:bg-surface2/40 transition-colors group"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-ink truncate">{e.name}</p>
-                            {e.oneTime && (
-                              <span className="text-[9px] uppercase tracking-wide bg-down/15 text-down border border-down/20 px-1.5 py-0.5 rounded-full shrink-0 font-medium">
-                                one-time
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-mutedDim mt-0.5 truncate">
-                            {e.expenseType}
-                            {e.app ? ` · ${e.app}` : ''} · {e.date.slice(5).replace('-', '/')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-3">
-                          <div className="text-right">
-                            <p className="font-semibold text-sm text-ink tabular-nums">₹{e.cost.toLocaleString('en-IN')}</p>
-                            <p className="text-xs text-mutedDim">{e.paidBy}</p>
-                          </div>
-                          <span className="text-mutedDim/40 group-hover:text-mutedDim transition-colors">›</span>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <TransactionList expenses={sortedExpenses} density="compact" dividerTone="soft" />
               )}
             </div>
           </aside>
