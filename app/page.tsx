@@ -8,6 +8,18 @@ import { filterByMonth } from '@/lib/date'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * First whitespace-separated chunk of a display name, trimmed. Safe against
+ * single-word, empty, and null values — falls back to '' so the header just
+ * omits the greeting rather than rendering "undefined".
+ */
+function firstName(fullName?: string | null): string {
+  if (!fullName) return ''
+  const trimmed = fullName.trim()
+  if (!trimmed) return ''
+  return trimmed.split(/\s+/)[0]
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -32,7 +44,7 @@ export default async function DashboardPage({
         prevMonthExpenses={prevMonthExpenses}
         monthLabel={format(monthDate, 'MMMM yyyy')}
         monthStr={monthStr}
-        userName={session.user?.name?.split(' ')[0] ?? ''}
+        userName={firstName(session.user?.name)}
       />
       <BottomNav />
     </>

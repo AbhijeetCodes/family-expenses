@@ -8,7 +8,14 @@ export type SettingsData = {
   tags: string[]
 }
 
-const CACHE_TTL_MS = 60_000
+// Cache TTL — defaults to 60s, override via SETTINGS_CACHE_TTL_MS. Settings
+// rarely change, so a much higher value (e.g. 600_000 / 10 min) is reasonable.
+export const CACHE_TTL_MS = (() => {
+  const raw = process.env.SETTINGS_CACHE_TTL_MS
+  if (!raw) return 60_000
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n : 60_000
+})()
 let _settingsCache: { data: SettingsData; expiresAt: number } | null = null
 // Coalesces concurrent cache-miss fetches: second caller awaits the first's
 // in-flight promise instead of firing a duplicate Sheets request.
@@ -26,8 +33,6 @@ const COLS = {
   paidBy: 3,
   tags: 4,
 }
-
-const COL_HEADERS = ['ExpenseTypes', 'Apps', 'PaymentModes', 'PaidBy', 'Tags']
 
 export async function getSettings(): Promise<SettingsData> {
   if (_settingsCache && Date.now() < _settingsCache.expiresAt) return _settingsCache.data
@@ -80,6 +85,12 @@ function nextAppendRow(rows: string[][], colIdx: number): number {
 }
 
 function columnLetter(colIdx: number): string {
+  // Single-letter columns only — anything past Z (>25) would produce non-letter
+  // chars and silently corrupt the write range. Settings has 5 columns today;
+  // this guard is a foot-gun catcher if a 6th column slips past Z later.
+  if (!Number.isInteger(colIdx) || colIdx < 0 || colIdx > 25) {
+    throw new Error(`columnLetter: column index out of range (0–25), got ${colIdx}`)
+  }
   return String.fromCharCode(65 + colIdx)
 }
 
@@ -154,7 +165,7 @@ export async function deleteSettingValue(
   })
   const rows = (res.data.values ?? []) as string[][]
   const colIdx = COLS[column]
-  const colLetter = String.fromCharCode(65 + colIdx)
+  const colLetter = columnLetter(colIdx)
 
   for (let i = 1; i < rows.length; i++) {
     if ((rows[i][colIdx] ?? '').toLowerCase() === value.toLowerCase()) {
@@ -167,23 +178,3 @@ export async function deleteSettingValue(
   }
 }
 
-export async function ensureSettingsTab(): Promise<void> {
-  const sheets = getSheetsClient()
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID })
-  const exists = meta.data.sheets?.some(s => s.properties?.title === SETTINGS_TAB)
-  if (exists) return
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: SHEET_ID,
-    requestBody: {
-      requests: [{ addSheet: { properties: { title: SETTINGS_TAB } } }],
-    },
-  })
-  // Write headers
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID,
-    range: `${SETTINGS_TAB}!A1:E1`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [COL_HEADERS] },
-  })
-}

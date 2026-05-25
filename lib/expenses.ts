@@ -1,7 +1,16 @@
 import { getSheetsClient, getTabSheetId, SHEET_ID, EXPENSES_TAB } from './sheets'
 import { format, parse, isValid } from 'date-fns'
 
-const CACHE_TTL_MS = 60_000
+// Cache TTL — defaults to 60s, override via EXPENSES_CACHE_TTL_MS so ops can
+// dial it up for infrequent-write households or down for active multi-user
+// editing without a code change. Non-numeric / negative env values are
+// ignored.
+export const CACHE_TTL_MS = (() => {
+  const raw = process.env.EXPENSES_CACHE_TTL_MS
+  if (!raw) return 60_000
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n : 60_000
+})()
 let _expensesCache: { data: Expense[]; expiresAt: number } | null = null
 // Coalesces concurrent cache-miss fetches: the second caller awaits the
 // first's in-flight promise instead of firing a duplicate Sheets request.
@@ -40,7 +49,13 @@ const COL = {
 
 function rowToExpense(row: string[], rowIndex: number): Expense {
   const raw = (i: number) => row[i] ?? ''
-  const costVal = parseFloat(raw(COL.cost).replace(/,/g, ''))
+  const rawCost = raw(COL.cost)
+  const costVal = parseFloat(rawCost.replace(/,/g, ''))
+  // Surface bad data — silent 0s hide bugs (e.g. a row where the cost column
+  // got an accidental letter). Empty cells are normal, so don't warn on those.
+  if (rawCost.trim() !== '' && isNaN(costVal)) {
+    console.warn(`[expenses] row ${rowIndex}: could not parse cost ${JSON.stringify(rawCost)} — defaulting to 0`)
+  }
   return {
     rowIndex,
     date: normaliseDate(raw(COL.date)),
