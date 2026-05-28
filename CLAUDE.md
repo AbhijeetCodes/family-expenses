@@ -5,12 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # Start dev server at http://localhost:3000
-npm run build    # Production build (also type-checks)
-npm run lint     # ESLint
+npm run dev         # Start dev server at http://localhost:3000
+npm run build       # Production build (also type-checks)
+npm run lint        # ESLint
+npm run type-check  # tsc --noEmit only (faster than a full build)
 ```
 
-No test suite. Type-checking runs implicitly via `next build`.
+No test suite.
 
 After any change: `git add -A && git commit -m "..." && git push` — Vercel auto-deploys from `main` (~2 min). Production URL: `https://family-expenses-ten.vercel.app`.
 
@@ -37,16 +38,18 @@ Browser → Next.js Server Action (app/actions.ts)
 
 ### Caching & write invariants
 
-`getAllExpenses()` and `getSettings()` use a **60-second in-memory TTL cache** (per serverless instance). This is the main reason repeat navigation feels fast — most `force-dynamic` page loads inside a session hit the cache, not Sheets.
+`getAllExpenses()` and `getSettings()` use an **in-memory TTL cache** (per serverless instance, default 60 s, overridable via `EXPENSES_CACHE_TTL_MS` / `SETTINGS_CACHE_TTL_MS` env vars). This is the main reason repeat navigation feels fast — most `force-dynamic` page loads inside a session hit the cache, not Sheets.
 
-**Critical invariant:** any server action that mutates Sheets data **must** bust the matching cache, otherwise users see stale data for up to 60s:
+Both functions also **coalesce concurrent cache-miss requests**: the second caller awaits the first's in-flight `Promise` instead of firing a duplicate Sheets request.
+
+**Critical invariant:** any server action that mutates Sheets data **must** bust the matching cache, otherwise users see stale data for up to 60 s:
 
 - Writes to the `Expenses` tab → call `invalidateExpensesCache()` from [lib/expenses.ts](lib/expenses.ts)
 - Writes to the `Settings` tab (including `promoteLookupValues`) → call `invalidateSettingsCache()` from [lib/settings.ts](lib/settings.ts)
 
-Call them **alongside** `revalidatePath()`, not instead of — `revalidatePath` only busts Next.js's render cache, not our in-memory data cache. See every mutation handler in [app/actions.ts](app/actions.ts) for the pattern.
+Do **not** call `revalidatePath()` — all pages are `force-dynamic`, so it is a no-op. The in-memory cache invalidation above is the only bust that matters.
 
-Independent writes in the same action should run in `Promise.all` (see `createExpenseAction` / `updateExpenseAction` — `addExpense` and `promoteLookupValues` run concurrently, so the form waits for the slower call, not the sum).
+Independent writes in the same action should run in `Promise.all` (see `createExpenseAction` / `updateExpenseAction` — `addExpense` and `promoteLookupValues` run concurrently). `promoteLookupValues` is only called (and `invalidateSettingsCache` only fired) when the user actually typed a new lookup value; common datalist picks are free.
 
 ### Auth
 
@@ -88,16 +91,16 @@ Common utility classes in [app/globals.css](app/globals.css): `card`, `btn-prima
 
 **Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is a 2×2 analytics card grid, right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column with a FAB. No tabs. The header uses `relative` + `absolute left-1/2 -translate-x-1/2` to keep the month nav dead-centred on all viewports; the desktop right cluster (Add Expense + username) uses `ml-auto`.
 
-**State owned by Dashboard:**
-- Five filter Sets (`excludedTypes`, `excludedApps`, `excludedModes`, `excludedPaidBy`, `excludedTags`) — **inverted logic**: empty = show everything, non-empty = those values are hidden. Filter dropdowns default to all items checked; unchecking hides.
-- `excludeOneTime` boolean — **defaults to `true`** so big rare purchases (rent, deposits) don't skew the monthly total on first open.
-- `showComparison` (toggles `CategoryCard` badge column between proportion % and delta % vs last month)
-- `sortKey`, `sortDir` for the transaction list
-- `selectedDate: string | null` — set when the user clicks a day on the Daily Spending chart
+**Filter/sort state** lives in the URL (not component `useState`) via the `useFilterParams` hook (`lib/useFilterParams.ts`). This means filters survive navigation between Dashboard and `/expenses`, are bookmarkable, and browser back/forward works. URL keys are terse single letters (`t`, `a`, `m`, `p`, `g`, `one`, `sort`, `dir`, `date`). `month` is owned by the server component and preserved untouched. Filter updates use `router.replace` with `{ scroll: false }` so the back button still leaves the page, not just changes a filter.
 
-**Two derived filter layers** — analytics cards (Overview, PaidBy, Category, DailyTrend) all consume `filtered` (the global filter set). The sidebar has a second layer: `sidebarFiltered = selectedDate ? filtered.filter(e => e.date === selectedDate) : filtered`. This means selecting a day scopes only the sidebar list, never the charts — so the user keeps full-month context while drilling in.
+- Five excluded-value Sets (`excludedTypes`, `excludedApps`, `excludedModes`, `excludedPaidBy`, `excludedTags`) — **inverted logic**: empty = show everything, non-empty = those values are hidden.
+- `excludeOneTime` — Dashboard default `true` (hides big one-offs), HistoryView default `false`.
+- `showComparison` (toggles `CategoryCard` badge column — proportion % vs delta % vs last month). Owned by Dashboard local `useState`, not URL-backed.
+- `sortKey`, `sortDir`, `selectedDate` — URL-backed via `useFilterParams`.
 
-`handleSelectDay` is viewport-aware: on desktop (≥ 1024 px / Tailwind `lg`) it sets `selectedDate` in place; on mobile it `router.push`es to `/expenses?month=YYYY-MM&date=YYYY-MM-DD` instead (the sidebar is `hidden lg:flex` so there's nothing to filter in place).
+**Two derived filter layers** — analytics cards consume `filtered` (global filter set). The sidebar applies a second pass: `sidebarFiltered = selectedDate ? filtered.filter(e => e.date === selectedDate) : filtered`. Selecting a day scopes only the sidebar list, never the charts.
+
+`handleSelectDay` uses `useMediaQuery('(min-width: 1024px)')` from `lib/useMediaQuery.ts` (not `window.matchMedia` per click). On desktop it calls `setSelectedDate(day)`; on mobile it `router.push`es to `/expenses?month=YYYY-MM&date=YYYY-MM-DD`.
 
 ### Card components ([components/cards/](components/cards/))
 
@@ -108,7 +111,7 @@ All cards are wrapped in `React.memo` so toggling a filter only re-renders cards
 - `CategoryCard` — wraps `CategoryBars`; passes `showComparison` to switch badge mode
 - `DailyTrendCard` — wraps `DailyTrend`; accepts `onSelectDay?: (day: string) => void` which it forwards straight through to the chart
 
-The transaction list is **not** a separate card component — it lives inline inside the `<aside>` in `Dashboard.tsx` (desktop only, `hidden lg:flex`). `HistoryView.tsx` has its own independent inline list for the `/expenses` page; it reads `?date=` from `useSearchParams` on mount to pre-filter to a specific day (populated by the mobile drill-down path).
+The transaction list is rendered by the shared `components/TransactionList.tsx` component. Both `Dashboard.tsx` (sidebar) and `HistoryView.tsx` (/expenses page) use it. Props: `expenses`, `showTags?`, `density?: 'compact' | 'comfortable'`, `dividerTone?: 'soft' | 'standard'`. The component is wrapped in `React.memo` and uses `formatINR` for consistent currency display.
 
 ### Charts ([components/charts/](components/charts/))
 
@@ -120,7 +123,7 @@ The transaction list is **not** a separate card component — it lives inline in
 
 Colors come from `colorForString()` in [components/icons.tsx](components/icons.tsx) — a deterministic hash → 8-color palette. The same function drives `CategoryGlyph` chip backgrounds, `CategoryBars` bars, `AvatarBadge`, and `PaidByCard` bars, so a category/person looks consistent across the whole UI.
 
-`CategoryGlyph` (also in [components/icons.tsx](components/icons.tsx)) maps a category name to a clean SVG icon via case-insensitive keyword matching (e.g. "rent" → home, "health" → cross, "grocery" → cart). Unrecognised names fall back to a generic circle glyph.
+`CategoryGlyph` (also in [components/icons.tsx](components/icons.tsx)) maps a category name to a clean SVG icon via case-insensitive keyword matching (e.g. "rent" → home, "health" → cross, "grocery" → cart). Unrecognised names fall back to a generic circle glyph. The internal `glyphFor()` helper is memoized with a `Map<string, string>` so repeated calls for the same category name are O(1).
 
 ### Freeform lookup values (Expense Type / App / Payment Mode)
 
@@ -134,7 +137,18 @@ On form submit, `app/actions.ts` calls `promoteLookupValues()` which calls `addS
 
 All pages are `dynamic = 'force-dynamic'`. The in-memory TTL cache (see *Caching & write invariants*) is what keeps these cheap — `force-dynamic` re-runs the React tree on every request, but the underlying Sheets fetch usually hits the cache.
 
-`ExpenseForm` handles both create (no `existing` prop) and edit (with `existing`) via the same server actions in `app/actions.ts`. **Form submit navigates first, then awaits the server action**: `router.push('/')` fires immediately on Save/Delete, the action runs inside `startTransition`, and `router.refresh()` pulls fresh data when it resolves. The user never blocks on the Sheets round-trip. Errors after navigation are logged to `console.error` — don't add UI that depends on validation throwing back to the form.
+`ExpenseForm` handles both create (no `existing` prop) and edit (with `existing`) via the same server actions in `app/actions.ts`. **Form submit awaits the action first, then navigates**: `await createExpenseAction(...)` completes before `router.push('/')`, so the dashboard never lands on stale data. The ~300 ms latency is surfaced as a "Saving…" spinner. Errors caught in the `try/catch` render an inline error message in the form — don't restructure this to fire-and-navigate.
+
+### Shared helpers (`lib/`)
+
+| File | Exports | Purpose |
+|---|---|---|
+| `lib/format.ts` | `formatINR(n, opts?)` | Indian-locale number formatting (no ₹ symbol — callers prepend it). Default: whole rupees. Pass `{ decimals: 2 }` for paise. Use this instead of `.toLocaleString` calls. |
+| `lib/utils.ts` | `unique(arr)` | Dedup + sort a `string[]`, filtering out empty strings. |
+| `lib/date.ts` | `filterByMonth(expenses, monthStr)` | Filter an `Expense[]` to rows whose `date` starts with `YYYY-MM`. Used in server components; avoids duplicating the prefix check. |
+| `lib/types.ts` | `SortKey`, `SortDir` | Shared sort-direction types used by `useFilterParams`, `Dashboard`, and `HistoryView`. |
+| `lib/useFilterParams.ts` | `useFilterParams(defaults)` | URL-backed filter + sort state hook. Returns `FilterState & FilterActions`. Use in any client component that needs filter/sort UI. `month` param is never touched. |
+| `lib/useMediaQuery.ts` | `useMediaQuery(query)` | SSR-safe `window.matchMedia` wrapper: returns `false` on server, updates reactively via `addEventListener('change')` on the client. |
 
 ### Branding & PWA icons
 
