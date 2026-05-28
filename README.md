@@ -2,6 +2,8 @@
 
 Private expense tracker PWA for family use. Backed by Google Sheets. Hosted free on Vercel.
 
+📚 **[Interactive course — how this codebase works (non-technical)](https://htmlpreview.github.io/?https://github.com/AbhijeetCodes/family-expenses/blob/main/family-expenses-course.html)**
+
 ## Features
 - Google Sign-In with email allowlist (private, family-only)
 - Add / edit / delete expenses
