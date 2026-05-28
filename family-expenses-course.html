@@ -1,0 +1,2165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Family Expenses App — Interactive Course</title>
+<style>
+  :root {
+    --base: #10121D;
+    --surface: #1A1D2D;
+    --surface2: #252836;
+    --divider: #262A3D;
+    --accent: #00D689;
+    --accent2: #00B575;
+    --ink: #FFFFFF;
+    --muted: #94A3B8;
+    --mutedDim: #64748B;
+    --up: #22C55E;
+    --down: #EF4444;
+    --gold: #F59E0B;
+    --code-bg: rgba(0,0,0,0.2);
+    --code-color: #7DD3FC;
+  }
+  html.light {
+    --base: #F8FAFC;
+    --surface: #FFFFFF;
+    --surface2: #F1F5F9;
+    --divider: #E2E8F0;
+    --accent: #00A86B;
+    --accent2: #008F5A;
+    --ink: #0F172A;
+    --muted: #475569;
+    --mutedDim: #94A3B8;
+    --up: #16A34A;
+    --down: #DC2626;
+    --gold: #D97706;
+    --code-bg: #F1F5F9;
+    --code-color: #0369A1;
+  }
+
+  /* ── Theme toggle ── */
+  #theme-toggle {
+    position: fixed; top: 12px; right: 16px; z-index: 300;
+    display: flex; align-items: center; gap: 7px;
+    background: var(--surface2); border: 1px solid var(--divider);
+    border-radius: 20px; padding: 5px 12px 5px 8px;
+    cursor: pointer; font-size: 12px; font-weight: 600;
+    color: var(--muted); transition: all 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  #theme-toggle:hover { color: var(--ink); border-color: var(--accent); }
+  #theme-toggle .toggle-icon { font-size: 14px; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--base);
+    color: var(--ink);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Progress bar ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), #00B575);
+    width: 0%; z-index: 1000;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  /* ── Sidebar nav ── */
+  #sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--divider);
+    padding: 24px 0;
+    overflow-y: auto;
+    z-index: 100;
+    transition: transform 0.3s ease;
+  }
+  #sidebar .logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--divider);
+    margin-bottom: 12px;
+  }
+  #sidebar .logo-title { font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase; }
+  #sidebar .logo-sub { font-size: 11px; color: var(--mutedDim); margin-top: 2px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px;
+    font-size: 13px; color: var(--muted);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .nav-item:hover { color: var(--ink); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,214,137,0.06); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .nav-progress {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--divider); margin-left: auto;
+    transition: background 0.3s;
+  }
+  .nav-item.done .nav-progress { background: var(--accent); }
+
+  /* ── Main content ── */
+  #main { margin-left: 220px; min-height: 100vh; }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 80px 60px 60px;
+    background: linear-gradient(135deg, var(--surface) 0%, var(--base) 60%);
+    border-bottom: 1px solid var(--divider);
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0,214,137,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,214,137,0.12); border: 1px solid rgba(0,214,137,0.3);
+    color: var(--accent); font-size: 12px; font-weight: 600;
+    padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
+    letter-spacing: 0.05em;
+  }
+  .hero h1 { font-size: 42px; font-weight: 800; line-height: 1.2; margin-bottom: 16px; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { font-size: 17px; color: var(--muted); max-width: 580px; margin-bottom: 32px; }
+  .hero-stats {
+    display: flex; gap: 32px; flex-wrap: wrap;
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat-num { font-size: 28px; font-weight: 800; color: var(--accent); }
+  .hero-stat-label { font-size: 12px; color: var(--mutedDim); margin-top: 2px; }
+  .start-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #000;
+    font-weight: 700; font-size: 15px;
+    padding: 12px 28px; border-radius: 10px;
+    text-decoration: none; cursor: pointer; border: none;
+    transition: all 0.2s; margin-right: 12px;
+  }
+  .start-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+
+  /* ── Sections ── */
+  .section {
+    padding: 64px 60px;
+    border-bottom: 1px solid var(--divider);
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .section.visible { opacity: 1; transform: translateY(0); }
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 36px;
+  }
+  .section-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,214,137,0.12); border: 1px solid rgba(0,214,137,0.3);
+    color: var(--accent); font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-title { font-size: 28px; font-weight: 800; }
+  .section-subtitle { font-size: 15px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--divider);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+  .card p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+
+  /* ── Analogy boxes ── */
+  .analogy {
+    background: rgba(0,214,137,0.06);
+    border: 1px solid rgba(0,214,137,0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    position: relative;
+  }
+  .analogy::before {
+    content: '💡';
+    position: absolute; top: -10px; left: 20px;
+    background: var(--base); padding: 0 6px;
+    font-size: 16px;
+  }
+  .analogy-title { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .analogy p { font-size: 14px; color: var(--muted); }
+  .analogy strong { color: var(--ink); }
+
+  /* ── Code ↔ Plain English ── */
+  .translation {
+    background: var(--surface);
+    border: 1px solid var(--divider);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .translation-header {
+    display: grid; grid-template-columns: 1fr 1fr;
+    background: var(--surface2);
+  }
+  .translation-header div {
+    padding: 10px 16px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .translation-header .code-label { color: var(--mutedDim); border-right: 1px solid var(--divider); }
+  .translation-header .english-label { color: var(--accent); }
+  .translation-body { display: grid; grid-template-columns: 1fr 1fr; }
+  .translation-code {
+    padding: 16px; font-family: 'SF Mono', Monaco, monospace;
+    font-size: 12px; color: var(--code-color);
+    border-right: 1px solid var(--divider);
+    background: var(--code-bg);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .translation-english { padding: 16px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .translation-english strong { color: var(--ink); }
+
+  /* ── Flow diagram ── */
+  .flow-diagram {
+    background: var(--surface);
+    border: 1px solid var(--divider);
+    border-radius: 14px;
+    padding: 32px 24px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .flow-step {
+    background: var(--surface2);
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+    min-width: 120px;
+  }
+  .flow-step .icon { font-size: 24px; margin-bottom: 6px; }
+  .flow-step .label { font-size: 12px; font-weight: 600; color: var(--ink); }
+  .flow-step .sublabel { font-size: 11px; color: var(--mutedDim); margin-top: 2px; }
+  .flow-arrow { font-size: 20px; color: var(--accent); flex-shrink: 0; }
+
+  /* ── Quiz ── */
+  .quiz {
+    background: var(--surface);
+    border: 1px solid rgba(0,214,137,0.2);
+    border-radius: 14px;
+    padding: 28px;
+    margin: 32px 0;
+  }
+  .quiz-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .quiz-badge {
+    background: rgba(0,214,137,0.12);
+    color: var(--accent); font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .quiz h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+  .quiz-option {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 10px;
+    border: 1px solid var(--divider);
+    background: var(--surface2);
+    cursor: pointer; margin-bottom: 8px;
+    transition: all 0.2s; font-size: 14px; color: var(--muted);
+  }
+  .quiz-option:hover { border-color: var(--mutedDim); color: var(--ink); }
+  .quiz-option.correct { border-color: var(--up); background: rgba(34,197,94,0.1); color: var(--up); }
+  .quiz-option.wrong { border-color: var(--down); background: rgba(239,68,68,0.1); color: var(--down); }
+  .quiz-option .opt-dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 1px solid var(--divider); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 11px;
+  }
+  .quiz-feedback {
+    display: none; margin-top: 16px; padding: 14px 16px;
+    border-radius: 10px; font-size: 14px; line-height: 1.6;
+  }
+  .quiz-feedback.show { display: block; }
+  .quiz-feedback.correct-fb { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: var(--up); }
+  .quiz-feedback.wrong-fb { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #FCA5A5; }
+
+  /* ── Pill / tag ── */
+  .pill {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    background: var(--surface2); color: var(--muted);
+    margin: 2px;
+  }
+  .pill.green { background: rgba(0,214,137,0.12); color: var(--accent); }
+  .pill.blue { background: rgba(96,165,250,0.12); color: #93C5FD; }
+  .pill.gold { background: rgba(245,158,11,0.12); color: var(--gold); }
+  .pill.red { background: rgba(239,68,68,0.12); color: #FCA5A5; }
+
+  /* ── Data table ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0; }
+  .data-table th { background: var(--surface2); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 14px; text-align: left; }
+  .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--divider); color: var(--muted); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table td:first-child { color: var(--ink); font-weight: 600; }
+  .data-table .accent { color: var(--accent); }
+
+  /* ── Architecture diagram ── */
+  .arch-diagram {
+    background: var(--surface); border: 1px solid var(--divider);
+    border-radius: 14px; padding: 32px; margin: 24px 0;
+  }
+  .arch-layer {
+    background: var(--surface2); border: 1px solid var(--divider);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 6px;
+    position: relative;
+  }
+  .arch-layer .layer-name {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--mutedDim); margin-bottom: 6px;
+  }
+  .arch-layer .layer-items { display: flex; flex-wrap: wrap; gap: 8px; }
+  .arch-layer .layer-item {
+    background: var(--surface); border: 1px solid var(--divider);
+    border-radius: 6px; padding: 4px 10px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    font-family: 'SF Mono', Monaco, monospace;
+  }
+  .arch-connector { text-align: center; color: var(--accent); font-size: 18px; margin: 4px 0; }
+
+  /* ── Timeline ── */
+  .timeline { margin: 20px 0; }
+  .timeline-item { display: flex; gap: 16px; margin-bottom: 20px; }
+  .timeline-line { display: flex; flex-direction: column; align-items: center; }
+  .timeline-dot {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(0,214,137,0.12); border: 1px solid rgba(0,214,137,0.3);
+    color: var(--accent); font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .timeline-connector { flex: 1; width: 1px; background: var(--divider); margin: 4px 0; }
+  .timeline-content { padding-top: 4px; }
+  .timeline-content h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .timeline-content p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ── Feature highlight ── */
+  .feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .feature-item {
+    background: var(--surface2); border-radius: 10px; padding: 16px 18px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .feature-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .feature-item h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .feature-item p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  /* ── Section complete banner ── */
+  .section-complete {
+    display: none; align-items: center; gap: 12px;
+    background: rgba(0,214,137,0.08); border: 1px solid rgba(0,214,137,0.25);
+    border-radius: 10px; padding: 14px 18px; margin-top: 24px;
+    font-size: 14px; font-weight: 600; color: var(--accent);
+  }
+  .section-complete.show { display: flex; }
+
+  /* ── Spreadsheet mockup ── */
+  .spreadsheet { overflow-x: auto; margin: 20px 0; }
+  .spreadsheet table { border-collapse: collapse; font-size: 12px; font-family: 'SF Mono', Monaco, monospace; width: 100%; }
+  .spreadsheet th { background: #2D9B6B; color: #fff; padding: 8px 12px; text-align: left; font-weight: 700; font-size: 11px; }
+  .spreadsheet td { padding: 7px 12px; border: 1px solid var(--divider); color: var(--muted); }
+  .spreadsheet tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .spreadsheet td:first-child { background: rgba(0,214,137,0.05); color: var(--accent); font-weight: 600; }
+
+  /* ── Tooltip ── */
+  .tooltip-wrap { position: relative; display: inline-block; cursor: help; }
+  .tooltip-target { border-bottom: 1px dashed var(--accent); color: var(--accent); }
+  .tooltip-box {
+    display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); background: var(--surface2);
+    border: 1px solid var(--divider); border-radius: 8px;
+    padding: 10px 14px; font-size: 12px; color: var(--muted);
+    width: 220px; z-index: 10; text-align: left; line-height: 1.5;
+  }
+  .tooltip-wrap:hover .tooltip-box { display: block; }
+
+  /* ── Highlight callout ── */
+  .callout {
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px; margin: 16px 0;
+    background: rgba(0,214,137,0.04); border-radius: 0 8px 8px 0;
+    font-size: 14px; color: var(--muted); line-height: 1.7;
+  }
+  .callout strong { color: var(--ink); }
+
+  /* ── Two column ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 16px 0; }
+
+  /* ── Scroll to top ── */
+  #scroll-top {
+    position: fixed; bottom: 28px; right: 28px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--divider);
+    color: var(--muted); font-size: 16px;
+    cursor: pointer; display: none; align-items: center; justify-content: center;
+    z-index: 200; transition: all 0.2s;
+  }
+  #scroll-top:hover { border-color: var(--accent); color: var(--accent); }
+  #scroll-top.show { display: flex; }
+
+  /* ── Mobile toggle ── */
+  #nav-toggle { display: none; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    #main { margin-left: 0; }
+    .hero { padding: 60px 24px 40px; }
+    .hero h1 { font-size: 28px; }
+    .section { padding: 40px 24px; }
+    .two-col, .feature-row { grid-template-columns: 1fr; }
+    .translation-body { grid-template-columns: 1fr; }
+    .translation-code { border-right: none; border-bottom: 1px solid var(--divider); }
+    .flow { flex-direction: column; align-items: flex-start; }
+    #nav-toggle {
+      display: flex; position: fixed; top: 14px; left: 14px;
+      z-index: 200; background: var(--surface); border: 1px solid var(--divider);
+      border-radius: 8px; padding: 8px; cursor: pointer; color: var(--muted);
+      font-size: 20px; align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+    }
+    #overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 90;
+    }
+    #overlay.show { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- Mobile toggle -->
+<button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
+<div id="overlay" onclick="toggleNav()"></div>
+
+<!-- Sidebar navigation -->
+<nav id="sidebar">
+  <div class="logo">
+    <div class="logo-title">💰 Family Expenses</div>
+    <div class="logo-sub">Interactive Course</div>
+  </div>
+  <a class="nav-item active" href="#hero" onclick="setActive(this)">
+    <span class="nav-icon">🏠</span> Overview
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-1" onclick="setActive(this)">
+    <span class="nav-icon">🗺️</span> The Big Picture
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-2" onclick="setActive(this)">
+    <span class="nav-icon">📊</span> Your Data in Sheets
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-3" onclick="setActive(this)">
+    <span class="nav-icon">🔄</span> How Data Flows
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-4" onclick="setActive(this)">
+    <span class="nav-icon">📈</span> The Dashboard
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-5" onclick="setActive(this)">
+    <span class="nav-icon">➕</span> Adding Expenses
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-6" onclick="setActive(this)">
+    <span class="nav-icon">🔍</span> Filters & Navigation
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-7" onclick="setActive(this)">
+    <span class="nav-icon">🔐</span> Authentication
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-8" onclick="setActive(this)">
+    <span class="nav-icon">⚙️</span> Settings
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-9" onclick="setActive(this)">
+    <span class="nav-icon">⚡</span> Performance
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#section-10" onclick="setActive(this)">
+    <span class="nav-icon">🏗️</span> System Design
+    <span class="nav-progress"></span>
+  </a>
+  <a class="nav-item" href="#finish" onclick="setActive(this)">
+    <span class="nav-icon">🎓</span> Finish
+    <span class="nav-progress"></span>
+  </a>
+</nav>
+
+<!-- Main content -->
+<main id="main">
+
+  <!-- ════════════════ HERO ════════════════ -->
+  <section class="hero" id="hero">
+    <div class="hero-badge">📚 Interactive Course · 11 Modules</div>
+    <h1>How the <span>Family Expenses</span><br/>App Actually Works</h1>
+    <p>A plain-English walkthrough for product managers, designers, and family members — no coding experience needed.</p>
+    <div class="hero-stats" style="margin-bottom: 32px;">
+      <div class="hero-stat"><div class="hero-stat-num">11</div><div class="hero-stat-label">Modules</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">~25</div><div class="hero-stat-label">Min read</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">9</div><div class="hero-stat-label">Quizzes</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">0</div><div class="hero-stat-label">Code required</div></div>
+    </div>
+    <button class="start-btn" onclick="document.getElementById('section-1').scrollIntoView({behavior:'smooth'})">
+      Start Learning →
+    </button>
+    <p style="font-size:13px; color: var(--mutedDim); margin-top: 16px;">Scroll down or use the sidebar to navigate between modules.</p>
+  </section>
+
+  <!-- ════════════════ MODULE 1: BIG PICTURE ════════════════ -->
+  <section class="section" id="section-1">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <div>
+        <div class="section-title">🗺️ The Big Picture</div>
+        <div class="section-subtitle">What is this app and why does it exist?</div>
+      </div>
+    </div>
+
+    <p style="font-size:16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      The Family Expenses app is a <strong style="color:var(--ink)">private web application</strong> that lets a family track their spending together — but with a twist: <strong style="color:var(--accent)">all the data lives in a regular Google Sheet</strong> the family already owns, not in some company's database they don't control.
+    </p>
+
+    <div class="card-grid">
+      <div class="card">
+        <h3>📱 What you see</h3>
+        <p>A fast, mobile-friendly app with charts, filters, and easy forms. It looks and feels like a professional expense app.</p>
+      </div>
+      <div class="card">
+        <h3>📊 Where data lives</h3>
+        <p>A Google Sheet owned by the family. Every expense row the app shows is a row in that spreadsheet.</p>
+      </div>
+      <div class="card">
+        <h3>🔒 Who can access</h3>
+        <p>Only family members whose Google email addresses the owner has explicitly approved. No strangers can sign in.</p>
+      </div>
+      <div class="card">
+        <h3>☁️ Where it's hosted</h3>
+        <p>Vercel — a free cloud hosting service. Push new code and the site automatically updates within ~2 minutes.</p>
+      </div>
+    </div>
+
+    <div class="analogy">
+      <div class="analogy-title">Real-world analogy</div>
+      <p>Think of the app like a <strong>beautiful dashboard on top of a spreadsheet</strong>. Your Google Sheet is the filing cabinet; the app is the organised office that lets everyone work with those files easily — without needing to know where the cabinet is or how files are organised inside it.</p>
+    </div>
+
+    <h3 style="margin: 28px 0 16px; font-size: 18px;">Pages the family can visit</h3>
+    <div class="feature-row">
+      <div class="feature-item">
+        <div class="feature-icon">🏠</div>
+        <div>
+          <h4>Dashboard (Home)</h4>
+          <p>Monthly overview with spending totals, category breakdown, who-paid chart, and daily trend line.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">📋</div>
+        <div>
+          <h4>History (/expenses)</h4>
+          <p>Full searchable list of every transaction this month, with filters and sorting.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">➕</div>
+        <div>
+          <h4>Add Expense (/add)</h4>
+          <p>Quick form to record a new purchase. Takes under 30 seconds once you're familiar.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">⚙️</div>
+        <div>
+          <h4>Settings (/settings)</h4>
+          <p>Manage the dropdown lists — categories, payment modes, family members, tags.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz 1 -->
+    <div class="quiz" id="quiz-1">
+      <div class="quiz-header">
+        <span class="quiz-badge">✏️ Quick Check</span>
+      </div>
+      <h3>Where does the Family Expenses app actually store your spending data?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-1', this, false)">
+        <div class="opt-dot">A</div> In a private database managed by the developer
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-1', this, true)">
+        <div class="opt-dot">B</div> In a Google Sheet owned by the family
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-1', this, false)">
+        <div class="opt-dot">C</div> In the phone's local storage
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-1-fb-correct">
+        ✅ Correct! The app is just a beautiful layer on top of your own Google Sheet. You own the data completely — if the app ever goes away, your spreadsheet is untouched.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-1-fb-wrong">
+        ❌ Not quite. The data lives in a Google Sheet owned by the family — not in any external database or local device storage.
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-1">✅ Module 1 complete — great start!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 2: DATA IN SHEETS ════════════════ -->
+  <section class="section" id="section-2">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <div>
+        <div class="section-title">📊 Your Data in Google Sheets</div>
+        <div class="section-subtitle">How the spreadsheet is structured</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      The spreadsheet has two tabs (worksheets). Think of them like two sections in a binder: one for all your expenses, one for the lists of options in the app's dropdowns.
+    </p>
+
+    <h3 style="font-size: 18px; margin-bottom: 16px;">Tab 1: "Expenses" — Every purchase recorded</h3>
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 12px;">Row 1 is the header. Each row below is one expense. Here's what the real spreadsheet looks like:</p>
+
+    <div class="spreadsheet">
+      <table>
+        <tr>
+          <th>A: Month</th><th>B: Date</th><th>C: Expense Type</th><th>D: App</th>
+          <th>E: Payment Mode</th><th>F: Name</th><th>G: Cost</th>
+          <th>H: Paid By</th><th>I: 1 Time?</th><th>J: Tags</th>
+        </tr>
+        <tr>
+          <td>2026-05</td><td>2026-05-28</td><td>Grocery</td><td>BigBasket</td>
+          <td>UPI</td><td>Monthly vegetables</td><td>2400</td>
+          <td>A</td><td></td><td>essentials</td>
+        </tr>
+        <tr>
+          <td>2026-05</td><td>2026-05-15</td><td>Rent</td><td>—</td>
+          <td>Bank Transfer</td><td>May rent</td><td>25000</td>
+          <td>A</td><td>✓</td><td>fixed</td>
+        </tr>
+        <tr>
+          <td>2026-05</td><td>2026-05-20</td><td>Food</td><td>Zomato</td>
+          <td>Card</td><td>Dinner with family</td><td>1200</td>
+          <td>B</td><td></td><td>dining,treat</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="callout">
+      <strong>Notice column A (Month):</strong> The app fills this in automatically when you save an expense. You never type the month — the code extracts it from the date. This lets the app quickly filter by month without scanning every row.
+    </div>
+
+    <h3 style="font-size: 18px; margin: 28px 0 16px;">Tab 2: "Settings" — Your dropdown lists</h3>
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 12px;">Five columns, each holding one dropdown list from the app. Row 1 is headers, rows below are options:</p>
+
+    <div class="spreadsheet">
+      <table>
+        <tr>
+          <th>A: ExpenseTypes</th><th>B: Apps</th><th>C: PaymentModes</th>
+          <th>D: PaidBy</th><th>E: Tags</th>
+        </tr>
+        <tr><td>Grocery</td><td>BigBasket</td><td>UPI</td><td>A</td><td>essentials</td></tr>
+        <tr><td>Food</td><td>Zomato</td><td>Card</td><td>B</td><td>dining</td></tr>
+        <tr><td>Rent</td><td>Amazon</td><td>Cash</td><td>C</td><td>fixed</td></tr>
+        <tr><td>Entertainment</td><td>Netflix</td><td>Bank Transfer</td><td></td><td>vacation</td></tr>
+        <tr><td>Health</td><td>PharmEasy</td><td>EMI</td><td></td><td>treat</td></tr>
+      </table>
+    </div>
+
+    <div class="analogy">
+      <div class="analogy-title">Why separate tabs?</div>
+      <p>Imagine a restaurant. The <strong>Expenses tab</strong> is the order log — every single order ever placed. The <strong>Settings tab</strong> is the menu — the list of available dishes. The order log references the menu, but they're kept separate so the menu can be updated without affecting past orders.</p>
+    </div>
+
+    <h3 style="font-size: 18px; margin: 28px 0 16px;">Each expense field explained</h3>
+    <table class="data-table">
+      <tr><th>Field</th><th>What it means</th><th>Example</th></tr>
+      <tr><td>Month</td><td>Auto-computed. Enables fast monthly filtering.</td><td class="accent">2026-05</td></tr>
+      <tr><td>Date</td><td>When the money was spent</td><td>2026-05-28</td></tr>
+      <tr><td>Expense Type</td><td>Category of spending</td><td>Grocery, Rent, Entertainment</td></tr>
+      <tr><td>App</td><td>Platform/service used</td><td>Zomato, Amazon, PharmEasy</td></tr>
+      <tr><td>Payment Mode</td><td>How you paid</td><td>UPI, Card, Cash, EMI</td></tr>
+      <tr><td>Name</td><td>Free-text description</td><td>"Monthly vegetables"</td></tr>
+      <tr><td>Cost</td><td>Amount in Indian Rupees</td><td>2400</td></tr>
+      <tr><td>Paid By</td><td>Which family member (initials)</td><td>A, B, C</td></tr>
+      <tr><td>1 Time</td><td>Checkbox for big one-off expenses (e.g., rent)</td><td>✓ or empty</td></tr>
+      <tr><td>Tags</td><td>Comma-separated labels for custom grouping</td><td>essentials, dining, vacation</td></tr>
+    </table>
+
+    <!-- Quiz 2 -->
+    <div class="quiz" id="quiz-2">
+      <div class="quiz-header"><span class="quiz-badge">✏️ Quick Check</span></div>
+      <h3>The "1 Time" column is used to mark what kind of expenses?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-2', this, false)">
+        <div class="opt-dot">A</div> Expenses paid only once in a lifetime
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-2', this, true)">
+        <div class="opt-dot">B</div> Big one-off purchases like rent or a phone — excluded from the dashboard by default
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-2', this, false)">
+        <div class="opt-dot">C</div> Expenses where only one family member paid
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-2-fb-correct">
+        ✅ Exactly! The dashboard hides "one-time" expenses by default so they don't skew the monthly trend. You can toggle them back on with a filter.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-2-fb-wrong">
+        ❌ Not quite. "1 Time" flags large or irregular purchases (like rent or a gadget). The dashboard hides these by default to keep your day-to-day spending charts accurate.
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-2">✅ Module 2 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 3: DATA FLOW ════════════════ -->
+  <section class="section" id="section-3">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <div>
+        <div class="section-title">🔄 How Data Flows</div>
+        <div class="section-subtitle">The journey from spreadsheet to your screen</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      Every time you open the app, data travels through several layers before appearing on screen. Here's that journey visualised:
+    </p>
+
+    <div class="flow-diagram">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="icon">📊</div>
+          <div class="label">Google Sheets</div>
+          <div class="sublabel">Source of truth</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🔑</div>
+          <div class="label">sheets.ts</div>
+          <div class="sublabel">API client</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">📦</div>
+          <div class="label">expenses.ts</div>
+          <div class="sublabel">Caching layer</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">⚡</div>
+          <div class="label">actions.ts</div>
+          <div class="sublabel">Server gate</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🖥️</div>
+          <div class="label">Dashboard</div>
+          <div class="sublabel">Your browser</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">Let's break down what each layer does:</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">1</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Google Sheets — The filing cabinet</h4>
+          <p>This is where your data actually lives. The app connects to it using a "service account" — think of it as a robot employee that has permission to read and write to your spreadsheet.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">2</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>lib/sheets.ts — The librarian</h4>
+          <p>This file handles the actual communication with Google's servers. It holds the login credentials for the robot employee and knows how to ask Google Sheets for data. It's used by everything else — no other part of the app talks to Google directly.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">3</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>lib/expenses.ts — The smart cache</h4>
+          <p>After fetching data from Sheets, this layer holds a copy in memory for 60 seconds. If two family members open the app at the same time, only <em>one</em> request goes to Google — the second person gets the cached copy. This prevents overloading Google's API.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">4</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>app/actions.ts — The secure gatekeeper</h4>
+          <p>Every action that changes data (adding, editing, deleting) goes through this file. It re-checks that the user is logged in before doing anything. It's the last security checkpoint before data is written back to the spreadsheet.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">5</div>
+          <div style="height: 0"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>components/Dashboard.tsx — What you see</h4>
+          <p>This is the React component that turns raw numbers into the beautiful charts and cards on your screen. It runs in your browser and updates instantly as you change filters.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="translation">
+      <div class="translation-header">
+        <div class="code-label">Code snippet</div>
+        <div class="english-label">Plain English</div>
+      </div>
+      <div class="translation-body">
+        <div class="translation-code">// lib/expenses.ts
+export async function getAllExpenses() {
+  if (cache && Date.now() < cacheExpiry) {
+    return cache;
+  }
+  cache = await fetchFromSheets();
+  cacheExpiry = Date.now() + 60_000;
+  return cache;
+}</div>
+        <div class="translation-english">
+          <strong>"Give me all the expenses."</strong><br/><br/>
+          First, check if we fetched this data recently (within the last 60 seconds). If yes, return the saved copy immediately — no need to call Google.<br/><br/>
+          If not, go to Google Sheets, fetch all rows, save a copy, and set a 60-second expiry timer. Next request will hit the saved copy.
+        </div>
+      </div>
+    </div>
+
+    <div class="analogy">
+      <div class="analogy-title">The caching analogy — a restaurant's daily specials board</div>
+      <p>Imagine the kitchen writes today's specials on a board at 9am. Every waiter reads the board — they don't run to the kitchen to ask the chef every single time a customer wants to know. The board is refreshed every hour. That's caching: the "board" is the in-memory copy, refreshed every 60 seconds.</p>
+    </div>
+
+    <!-- Quiz 3 -->
+    <div class="quiz" id="quiz-3">
+      <div class="quiz-header"><span class="quiz-badge">✏️ Quick Check</span></div>
+      <h3>Why does the app cache expense data for 60 seconds instead of fetching from Google every time?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-3', this, false)">
+        <div class="opt-dot">A</div> Google Sheets is very slow and can't handle fast requests
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-3', this, true)">
+        <div class="opt-dot">B</div> To prevent hitting Google's API rate limits and to make the app feel fast
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-3', this, false)">
+        <div class="opt-dot">C</div> Because the data changes very frequently and needs to be batched
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-3-fb-correct">
+        ✅ Right! Google's API has rate limits — too many requests and it'll start rejecting them. Caching means most page loads serve the in-memory copy instantly, with Google only called once per minute.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-3-fb-wrong">
+        ❌ Not exactly. The main reason is avoiding Google API rate limits and keeping the app fast. Most expense data doesn't change second-to-second, so a 60-second window is a good tradeoff.
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-3">✅ Module 3 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 4: DASHBOARD ════════════════ -->
+  <section class="section" id="section-4">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <div>
+        <div class="section-title">📈 The Dashboard</div>
+        <div class="section-subtitle">What each card tells you</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      The dashboard is the home page. It shows this month's expenses through four "cards" — summary boxes — and a transaction sidebar. On desktop they're arranged in a 2×2 grid; on mobile they stack vertically.
+    </p>
+
+    <!-- Overview Card -->
+    <div class="card" style="border-left: 3px solid var(--accent);">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
+        <span style="font-size:20px;">💰</span>
+        <h3 style="margin-bottom:0">OverviewCard — The total at a glance</h3>
+      </div>
+      <p>Shows the running total for the month. Three things live here:</p>
+      <ul style="margin: 12px 0 12px 20px; color: var(--muted); font-size:14px; line-height:2;">
+        <li><strong style="color:var(--ink)">Monthly total</strong> — sum of all filtered expenses</li>
+        <li><strong style="color:var(--ink)">Trend pill</strong> — % change vs last month (green = less spent, red = more)</li>
+        <li><strong style="color:var(--ink)">Month-end forecast</strong> — only visible mid-month: if you've spent ₹10,000 in 10 days, it projects ₹31,000 by month end (10,000 ÷ 10 × 31)</li>
+      </ul>
+      <div class="analogy" style="margin-top: 12px;">
+        <div class="analogy-title">Forecast formula</div>
+        <p><strong>(Total spent so far ÷ Day of month) × Days in month</strong> — simple daily average, projected forward. Only shown for the current month.</p>
+      </div>
+    </div>
+
+    <!-- PaidBy Card -->
+    <div class="card" style="border-left: 3px solid #93C5FD;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
+        <span style="font-size:20px;">👥</span>
+        <h3 style="margin-bottom:0">PaidByCard — Who spent what</h3>
+      </div>
+      <p>Shows horizontal progress bars, one per family member. The bar width is proportional to their share of total spending. Clicking a bar name filters the sidebar to show only that person's transactions.</p>
+      <div style="margin: 14px 0;">
+        <!-- Mockup bars -->
+        <div style="margin-bottom: 10px;">
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px;">
+            <span style="display:flex;align-items:center;gap:6px;">
+              <span style="background:#00D689;color:#000;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">A</span>
+              Member A
+            </span>
+            <span style="color:var(--ink)">₹18,400 (62%)</span>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:62%;height:100%;background:#00D689;border-radius:4px;"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px;">
+            <span style="display:flex;align-items:center;gap:6px;">
+              <span style="background:#818CF8;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">B</span>
+              Member B
+            </span>
+            <span style="color:var(--ink)">₹11,200 (38%)</span>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:38%;height:100%;background:#818CF8;border-radius:4px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Card -->
+    <div class="card" style="border-left: 3px solid var(--gold);">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
+        <span style="font-size:20px;">🏷️</span>
+        <h3 style="margin-bottom:0">CategoryCard — Spending by type</h3>
+      </div>
+      <p>Horizontal bars showing how much was spent in each expense category. Categories that are less than 4% of total get collapsed into a gray "Other" bucket to keep the chart readable.</p>
+      <p style="margin-top:10px; color:var(--muted); font-size:14px;">There's a toggle button to switch between two badge modes:</p>
+      <ul style="margin: 8px 0 8px 20px; color: var(--muted); font-size:14px; line-height:2;">
+        <li><span class="pill blue">%</span> <strong style="color:var(--ink)">Proportion mode</strong> — what % of this month's total does each category represent?</li>
+        <li><span class="pill green">Δ</span> <strong style="color:var(--ink)">Comparison mode</strong> — how much more or less was spent vs last month?</li>
+      </ul>
+    </div>
+
+    <!-- Daily Trend Card -->
+    <div class="card" style="border-left: 3px solid #F472B6;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
+        <span style="font-size:20px;">📉</span>
+        <h3 style="margin-bottom:0">DailyTrendCard — Spending by day</h3>
+      </div>
+      <p>A line chart (using Recharts) showing the total amount spent on each calendar day of the month. Click any point on the chart to filter the transaction sidebar to show only that day's expenses.</p>
+      <div class="callout" style="margin-top: 12px;">
+        <strong>Performance note:</strong> The chart library (Recharts) is loaded lazily — it only downloads when needed, keeping the initial page load fast. While it loads, you see a skeleton placeholder so the layout doesn't jump.
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="card" style="margin-top: 20px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
+        <span style="font-size:20px;">📜</span>
+        <h3 style="margin-bottom:0">Transaction Sidebar — Individual expenses</h3>
+      </div>
+      <p>On desktop, a sticky right column shows the list of individual transactions filtered by whatever you've selected. On mobile, this list appears below the cards.</p>
+      <p style="margin-top:10px; color:var(--muted); font-size:14px;">Clicking a day on the daily trend chart scopes the sidebar to just that day — useful for drilling into "why was spending so high on the 15th?"</p>
+    </div>
+
+    <div class="section-complete" id="complete-4">✅ Module 4 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 5: ADDING EXPENSES ════════════════ -->
+  <section class="section" id="section-5">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <div>
+        <div class="section-title">➕ Adding & Editing Expenses</div>
+        <div class="section-subtitle">What happens when you hit "Save"</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      The expense form is used both for adding new entries and editing existing ones. It's the same form component, just pre-filled when editing.
+    </p>
+
+    <h3 style="font-size: 18px; margin-bottom: 16px;">The form fields and how they work</h3>
+
+    <table class="data-table">
+      <tr><th>Field</th><th>UI Type</th><th>Special behaviour</th></tr>
+      <tr><td>Date</td><td>Date picker</td><td>Defaults to today</td></tr>
+      <tr><td>Expense Type</td><td>Text + autocomplete</td><td>Freeform — type anything new; it gets saved for next time</td></tr>
+      <tr><td>App / Platform</td><td>Text + autocomplete</td><td>Same — freeform with suggestions from Settings</td></tr>
+      <tr><td>Payment Mode</td><td>Text + autocomplete</td><td>Same — freeform with suggestions</td></tr>
+      <tr><td>Name</td><td>Text input</td><td>Free description, no restrictions</td></tr>
+      <tr><td>Cost</td><td>Number input</td><td>Whole rupees only</td></tr>
+      <tr><td>Paid By</td><td>Select dropdown</td><td>Fixed list from Settings — no freeform to prevent typos</td></tr>
+      <tr><td>One Time?</td><td>Checkbox</td><td>Check for large irregular purchases</td></tr>
+      <tr><td>Tags</td><td>Multi-select chips</td><td>Fixed list from Settings — click to toggle</td></tr>
+    </table>
+
+    <div class="analogy">
+      <div class="analogy-title">Why are Expense Type, App, and Mode freeform — but PaidBy isn't?</div>
+      <p>The three freeform fields accept new values so the family doesn't need to go to Settings every time they use a new app or category. But <strong>Paid By</strong> must be exact — if one person types "Abhijeet" and another types "Abhi", the app would show them as two different payers. Fixed dropdowns prevent that confusion.</p>
+    </div>
+
+    <h3 style="font-size: 18px; margin: 28px 0 16px;">What happens when you press "Save"</h3>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">1</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Form submits → shows "Saving…" spinner</h4>
+          <p>The save happens on the server, so there's a brief ~300ms wait. The spinner prevents double-submits.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">2</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Server action re-checks login</h4>
+          <p>Even if somehow someone bypassed the login screen, the server refuses to write anything without a valid session. Security in depth.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">3</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>New categories promoted to Settings (if any)</h4>
+          <p>If you typed a new Expense Type, App, or Mode that doesn't exist in Settings yet, it's automatically added to the Settings tab. Next time, it appears as an autocomplete suggestion.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">4</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Row appended (or updated) in Google Sheets</h4>
+          <p>The data is written to the Expenses tab. Month column is auto-computed from the date.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">5</div>
+          <div style="height:0"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Cache cleared → navigate to dashboard</h4>
+          <p>The 60-second cache is invalidated immediately so the dashboard shows the new expense right away — no waiting for the cache to expire.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="translation">
+      <div class="translation-header">
+        <div class="code-label">The "cache bust" in code</div>
+        <div class="english-label">Plain English</div>
+      </div>
+      <div class="translation-body">
+        <div class="translation-code">// app/actions.ts
+await Promise.all([
+  addExpense(data),
+  promoteLookupValues(data)
+]);
+invalidateExpensesCache();
+invalidateSettingsCache();</div>
+        <div class="translation-english">
+          Do two things at the same time (in parallel for speed):
+          <br/>① Write the new expense row to Google Sheets
+          <br/>② Add any new dropdown values to Settings
+          <br/><br/>
+          Then throw away the cached data so the next page load fetches fresh numbers from Sheets.
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz 4 -->
+    <div class="quiz" id="quiz-4">
+      <div class="quiz-header"><span class="quiz-badge">✏️ Quick Check</span></div>
+      <h3>If you type a new expense category ("Petrol") that doesn't exist yet, what happens to it?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-4', this, false)">
+        <div class="opt-dot">A</div> The form shows an error and rejects the new value
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-4', this, false)">
+        <div class="opt-dot">B</div> It's saved in the expense but you have to manually add it to Settings later
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-4', this, true)">
+        <div class="opt-dot">C</div> It's saved in the expense AND automatically added to Settings so it appears as a suggestion next time
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-4-fb-correct">
+        ✅ Correct! The "promote lookup values" step runs on every save. New freeform values are silently added to the Settings tab, making the app self-curating over time.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-4-fb-wrong">
+        ❌ Actually, the app handles this automatically. New values typed in the freeform fields are promoted to the Settings tab on save — no manual work needed.
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-5">✅ Module 5 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 6: FILTERS ════════════════ -->
+  <section class="section" id="section-6">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <div>
+        <div class="section-title">🔍 Filters & Navigation</div>
+        <div class="section-subtitle">How the URL remembers what you were looking at</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      The filtering system has a clever design: <strong style="color:var(--ink)">all filter choices are saved in the URL</strong>. This means if you filter by "Grocery" and "UPI", the URL changes to include those choices. Sharing that URL with a family member shows them exactly what you're seeing.
+    </p>
+
+    <div class="callout">
+      <strong>Example URL:</strong><br/>
+      <code style="font-family: monospace; font-size:13px; color: var(--accent)">
+        /expenses?month=2026-05&t=Grocery,Food&m=UPI&sort=cost&dir=desc
+      </code>
+      <br/><br/>
+      This URL says: show May 2026 expenses, filtered to Grocery and Food categories, paid via UPI, sorted by cost descending.
+    </div>
+
+    <h3 style="font-size: 18px; margin: 24px 0 16px;">What each URL parameter means</h3>
+
+    <table class="data-table">
+      <tr><th>URL Key</th><th>What it filters</th><th>Example value</th></tr>
+      <tr><td class="accent">t</td><td>Expense Types to exclude</td><td>Grocery,Food</td></tr>
+      <tr><td class="accent">a</td><td>Apps to exclude</td><td>Zomato,Swiggy</td></tr>
+      <tr><td class="accent">m</td><td>Payment modes to exclude</td><td>Cash</td></tr>
+      <tr><td class="accent">p</td><td>Paid-By members to exclude</td><td>B,C</td></tr>
+      <tr><td class="accent">g</td><td>Tags to exclude</td><td>vacation</td></tr>
+      <tr><td class="accent">one</td><td>Hide one-time expenses?</td><td>true (default)</td></tr>
+      <tr><td class="accent">sort</td><td>Sort column</td><td>date, cost, name</td></tr>
+      <tr><td class="accent">dir</td><td>Sort direction</td><td>asc, desc</td></tr>
+      <tr><td class="accent">date</td><td>Selected day (sidebar only)</td><td>2026-05-15</td></tr>
+    </table>
+
+    <div class="analogy">
+      <div class="analogy-title">Why inverted logic? (Exclude vs include)</div>
+      <p>The filters work by <strong>exclusion</strong> — an empty filter means "show everything." This is intentional: when you open the app fresh, you see all your data. You hide things you don't want to see. This is more useful than "show only these" because you typically want to see most data and occasionally hide a noisy category.</p>
+    </div>
+
+    <h3 style="font-size: 18px; margin: 24px 0 16px;">Month navigation</h3>
+    <p style="color: var(--muted); font-size:14px; margin-bottom: 12px;">The month is controlled separately — by the server, not filters. Arrow buttons in the header change the <code style="font-family:monospace; font-size:12px; color:var(--accent)">month</code> URL parameter, which causes the server to fetch a different month's data from Sheets.</p>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>📱 On mobile</h3>
+        <p>Tapping a day on the chart navigates to the full <em>/expenses</em> list page, filtered to that day. This gives more screen space than the sidebar.</p>
+      </div>
+      <div class="card">
+        <h3>🖥️ On desktop</h3>
+        <p>Clicking a day on the chart filters the sidebar in place without leaving the dashboard. Both charts remain visible while browsing that day's transactions.</p>
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-6">✅ Module 6 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 7: AUTHENTICATION ════════════════ -->
+  <section class="section" id="section-7">
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <div>
+        <div class="section-title">🔐 Authentication</div>
+        <div class="section-subtitle">How the app knows who you are</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      The app uses <strong style="color:var(--ink)">Google Sign-In</strong> — the same "Sign in with Google" button you see on thousands of websites. No separate password to remember; just your Google account.
+    </p>
+
+    <h3 style="font-size: 18px; margin-bottom: 16px;">The sign-in flow step by step</h3>
+
+    <div class="flow-diagram">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="icon">👤</div>
+          <div class="label">Visit app</div>
+          <div class="sublabel">Not logged in</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🔑</div>
+          <div class="label">→ /login</div>
+          <div class="sublabel">Auto-redirected</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🏢</div>
+          <div class="label">Google OAuth</div>
+          <div class="sublabel">External Google page</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">✅</div>
+          <div class="label">Email check</div>
+          <div class="sublabel">In ALLOWED_EMAILS?</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🏠</div>
+          <div class="label">Dashboard</div>
+          <div class="sublabel">Access granted</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top: 20px;">
+      <div class="card" style="border-color: rgba(0,214,137,0.3);">
+        <h3 style="color: var(--up)">✅ Email is in the list</h3>
+        <p>Google sends back the user's email. It matches one in ALLOWED_EMAILS. A session is created. The user is redirected to the dashboard.</p>
+      </div>
+      <div class="card" style="border-color: rgba(239,68,68,0.3);">
+        <h3 style="color: var(--down)">❌ Email is NOT in the list</h3>
+        <p>Even though Google confirmed their identity, the app rejects them. They see an error: "Access denied." The data remains private.</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top: 20px;">
+      <strong>Adding a new family member:</strong> The owner changes the <code style="font-family:monospace;font-size:13px;color:var(--accent)">ALLOWED_EMAILS</code> variable in Vercel's settings and triggers a redeploy. No code changes needed. Takes about 2 minutes.
+    </div>
+
+    <div class="translation">
+      <div class="translation-header">
+        <div class="code-label">The email check</div>
+        <div class="english-label">Plain English</div>
+      </div>
+      <div class="translation-body">
+        <div class="translation-code">// lib/auth.ts
+callbacks: {
+  signIn({ profile }) {
+    const allowed = process.env
+      .ALLOWED_EMAILS
+      .split(',')
+      .map(e => e.trim());
+    return allowed.includes(
+      profile?.email
+    );
+  }
+}</div>
+        <div class="translation-english">
+          When someone signs in with Google, check their email against the approved list stored in the environment settings.<br/><br/>
+          <strong>Return true</strong> = let them in.<br/>
+          <strong>Return false</strong> = block them, no matter what.
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size: 18px; margin: 24px 0 16px;">Two layers of protection</h3>
+    <div class="feature-row">
+      <div class="feature-item">
+        <div class="feature-icon">🛡️</div>
+        <div>
+          <h4>Middleware (first gate)</h4>
+          <p>Before any page loads, a middleware check runs. If you don't have a session, you're redirected to /login automatically. This protects all pages.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🔒</div>
+        <div>
+          <h4>Server actions (second gate)</h4>
+          <p>Every write action (add, edit, delete) re-checks your session server-side. Even if somehow you bypassed the first gate, no data modification is possible without a valid session.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz 5 -->
+    <div class="quiz" id="quiz-5">
+      <div class="quiz-header"><span class="quiz-badge">✏️ Quick Check</span></div>
+      <h3>Someone has a valid Google account but their email isn't in ALLOWED_EMAILS. What happens when they try to sign in?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-5', this, true)">
+        <div class="opt-dot">A</div> Google verifies their identity but the app rejects them — they can't see any data
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-5', this, false)">
+        <div class="opt-dot">B</div> They can view the dashboard but can't add expenses
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-5', this, false)">
+        <div class="opt-dot">C</div> They're asked to request access from the owner
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-5-fb-correct">
+        ✅ Correct! Google only verifies "this is a real person." The app's own allowlist check decides "is this person allowed here?" A valid Google account is not enough on its own.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-5-fb-wrong">
+        ❌ Not quite. Even a valid Google account gets blocked if the email isn't in ALLOWED_EMAILS. The app doesn't have a "view-only" mode or a request-access flow — it's a hard block.
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-7">✅ Module 7 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 8: SETTINGS ════════════════ -->
+  <section class="section" id="section-8">
+    <div class="section-header">
+      <div class="section-num">8</div>
+      <div>
+        <div class="section-title">⚙️ Settings</div>
+        <div class="section-subtitle">Managing the dropdown lists</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      The Settings page lets the family manage the lists that appear in the expense form's dropdowns. Think of it as maintaining the "menu" the app uses for suggestions.
+    </p>
+
+    <div class="card-grid">
+      <div class="card">
+        <h3>📂 Expense Types</h3>
+        <p>Categories of spending. Add "Petrol" if you need it. Remove unused ones to keep the list clean.</p>
+        <div style="margin-top: 10px;">
+          <span class="pill">Grocery</span>
+          <span class="pill">Food</span>
+          <span class="pill">Rent</span>
+          <span class="pill">Health</span>
+          <span class="pill green">+ Add new</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📱 Apps</h3>
+        <p>Platforms and services. Amazon, Zomato, PharmEasy, etc. Freeform — can be typed directly in the form too.</p>
+        <div style="margin-top: 10px;">
+          <span class="pill">BigBasket</span>
+          <span class="pill">Zomato</span>
+          <span class="pill">Amazon</span>
+          <span class="pill green">+ Add new</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>💳 Payment Modes</h3>
+        <p>How the money was paid. UPI, Card, Cash, EMI, Bank Transfer, etc.</p>
+        <div style="margin-top: 10px;">
+          <span class="pill">UPI</span>
+          <span class="pill">Card</span>
+          <span class="pill">Cash</span>
+          <span class="pill">EMI</span>
+          <span class="pill green">+ Add new</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>👥 Paid By</h3>
+        <p>Family members. Kept as a fixed list (no freeform) to prevent accidental typos in attribution.</p>
+        <div style="margin-top: 10px;">
+          <span class="pill">A</span>
+          <span class="pill">B</span>
+          <span class="pill">C</span>
+          <span class="pill green">+ Add member</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Deleting a Settings value</strong> leaves a blank row in the spreadsheet (it doesn't shift everything up). The app filters out blank rows when it reads Settings, so the gap is harmless. This design means adding item #5 back won't accidentally end up in the wrong row.
+    </div>
+
+    <h3 style="font-size: 18px; margin: 24px 0 16px;">How new values get auto-promoted</h3>
+    <p style="color: var(--muted); font-size:14px; margin-bottom: 16px;">Remember the freeform fields in the expense form? When you type "Petrol" as a new Expense Type, the app runs <code style="font-family:monospace;font-size:12px;color:var(--accent)">promoteLookupValues()</code> in the background:</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">1</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Read current Settings tab</h4>
+          <p>Fetch the full current list of Expense Types, Apps, and Modes from the spreadsheet.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">2</div>
+          <div class="timeline-connector"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Check for duplicates (case-insensitive)</h4>
+          <p>"petrol" and "Petrol" are treated as the same. Only genuinely new values are added.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-line">
+          <div class="timeline-dot">3</div>
+          <div style="height:0"></div>
+        </div>
+        <div class="timeline-content">
+          <h4>Single batch write to Sheets</h4>
+          <p>All new values are written in one API call (not one per value). Efficient and fast.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-8">✅ Module 8 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 9: PERFORMANCE ════════════════ -->
+  <section class="section" id="section-9">
+    <div class="section-header">
+      <div class="section-num">9</div>
+      <div>
+        <div class="section-title">⚡ Performance Tricks</div>
+        <div class="section-subtitle">Why the app feels fast despite talking to a spreadsheet</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 28px; line-height: 1.8;">
+      Fetching data from Google Sheets on every click would feel slow. The app uses several techniques to stay snappy:
+    </p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div style="font-size: 24px; margin-bottom: 8px;">🗄️</div>
+        <h3>In-Memory Cache (60s TTL)</h3>
+        <p>After the first fetch, expense data is kept in server memory for 60 seconds. Most page navigations serve the cached copy — Google Sheets isn't called again.</p>
+        <p style="margin-top: 8px; font-size: 12px; color: var(--mutedDim)">Configurable via <code style="font-family:monospace">EXPENSES_CACHE_TTL_MS</code> environment variable.</p>
+      </div>
+      <div class="card">
+        <div style="font-size: 24px; margin-bottom: 8px;">🔗</div>
+        <h3>Request Coalescing</h3>
+        <p>If two family members open the app simultaneously (a "cache miss" race), only one Sheets API call is made. The second person's request waits and shares the result.</p>
+      </div>
+      <div class="card">
+        <div style="font-size: 24px; margin-bottom: 8px;">⚛️</div>
+        <h3>React.memo & useMemo</h3>
+        <p>Dashboard cards only re-render when their specific data changes. Changing one filter doesn't redraw all 4 cards — just the ones whose numbers actually changed.</p>
+      </div>
+      <div class="card">
+        <div style="font-size: 24px; margin-bottom: 8px;">📦</div>
+        <h3>Lazy-Loaded Charts</h3>
+        <p>The Recharts library (~250 KB) is only downloaded when the chart is about to appear on screen. The initial page load is much lighter.</p>
+      </div>
+    </div>
+
+    <div class="analogy" style="margin-top: 8px;">
+      <div class="analogy-title">Request coalescing — the "one phone call" analogy</div>
+      <p>Imagine two assistants both need to call the same supplier at the same moment. Instead of two calls, one assistant calls and both listen. That's request coalescing — the second request "rides along" on the first's in-flight network call, then both get the answer simultaneously.</p>
+    </div>
+
+    <h3 style="font-size: 18px; margin: 28px 0 16px;">What happens after a write (cache invalidation)</h3>
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 16px;">When you add or edit an expense, the stale cache must be cleared so the dashboard shows fresh data. The app calls <code style="font-family:monospace;font-size:12px;color:var(--accent)">invalidateExpensesCache()</code> after every write:</p>
+
+    <div class="flow-diagram">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="icon">💾</div>
+          <div class="label">Write to Sheets</div>
+          <div class="sublabel">New expense saved</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" style="border-color: var(--down);">
+          <div class="icon">🗑️</div>
+          <div class="label">Clear cache</div>
+          <div class="sublabel">Stale data gone</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🏠</div>
+          <div class="label">Navigate home</div>
+          <div class="sublabel">Dashboard loads</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" style="border-color: var(--up);">
+          <div class="icon">📊</div>
+          <div class="label">Fresh fetch</div>
+          <div class="sublabel">New data from Sheets</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz 6 -->
+    <div class="quiz" id="quiz-6">
+      <div class="quiz-header"><span class="quiz-badge">✏️ Quick Check</span></div>
+      <h3>After you add a new expense, why does the dashboard immediately show it instead of waiting 60 seconds?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-6', this, false)">
+        <div class="opt-dot">A</div> The cache is only 60 seconds, so it expires quickly on its own
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-6', this, true)">
+        <div class="opt-dot">B</div> The save action explicitly clears the cache right after writing to Sheets
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-6', this, false)">
+        <div class="opt-dot">C</div> The app doesn't use caching for write operations
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-6-fb-correct">
+        ✅ Exactly! <code style="font-family:monospace">invalidateExpensesCache()</code> is called right after every write. The next page load triggers a fresh Sheets fetch, so you see your new expense instantly.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-6-fb-wrong">
+        ❌ The cache is explicitly cleared (invalidated) right after the write. If it weren't, you'd have to wait up to 60 seconds to see your new expense on the dashboard.
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-9">✅ Module 9 complete!</div>
+  </section>
+
+  <!-- ════════════════ MODULE 10: SYSTEM DESIGN ════════════════ -->
+  <section class="section" id="section-10">
+    <div class="section-header">
+      <div class="section-num">10</div>
+      <div>
+        <div class="section-title">🏗️ System Design for Non-Technical Folks</div>
+        <div class="section-subtitle">Every file, its job title, and how they all talk to each other</div>
+      </div>
+    </div>
+
+    <p style="font-size:16px; color:var(--muted); max-width:680px; margin-bottom:28px; line-height:1.8;">
+      A codebase is just a team of specialists, each responsible for one job. Once you know who does what, you can follow any conversation in the code. Here's the full cast — no coding knowledge needed.
+    </p>
+
+    <!-- ── The Two Worlds ── -->
+    <div class="card" style="margin-bottom:24px;">
+      <h3 style="margin-bottom:14px; font-size:18px;">The Two Worlds: Kitchen vs. Dining Room</h3>
+      <div class="two-col">
+        <div style="background:rgba(0,214,137,0.07); border:1px solid rgba(0,214,137,0.2); border-radius:10px; padding:16px 18px;">
+          <div style="font-size:22px; margin-bottom:6px;">🍳</div>
+          <div style="font-weight:700; color:var(--accent); font-size:14px; margin-bottom:6px;">The Kitchen — Server</div>
+          <p style="font-size:13px; color:var(--muted); line-height:1.7;">Runs on Vercel's cloud servers. Handles secrets (Google credentials), fetches data, checks permissions. <strong style="color:var(--ink)">Users never see this code run</strong> — only the results it sends back.</p>
+          <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+            <span class="pill green">lib/</span>
+            <span class="pill green">app/actions.ts</span>
+            <span class="pill green">middleware.ts</span>
+          </div>
+        </div>
+        <div style="background:rgba(96,165,250,0.07); border:1px solid rgba(96,165,250,0.2); border-radius:10px; padding:16px 18px;">
+          <div style="font-size:22px; margin-bottom:6px;">🍽️</div>
+          <div style="font-weight:700; color:#93C5FD; font-size:14px; margin-bottom:6px;">The Dining Room — Browser</div>
+          <p style="font-size:13px; color:var(--muted); line-height:1.7;">Runs inside your browser tab. Draws the UI, responds to clicks, updates charts when you change filters. <strong style="color:var(--ink)">This is what you actually see and interact with.</strong></p>
+          <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+            <span class="pill blue">components/</span>
+            <span class="pill blue">app/page.tsx</span>
+            <span class="pill blue">lib/use*.ts</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Cast of Characters ── -->
+    <h3 style="font-size:18px; margin:28px 0 16px;">🎭 The Cast of Characters</h3>
+    <p style="color:var(--muted); font-size:14px; margin-bottom:16px;">Every key file with its job title and what it does in plain English:</p>
+
+    <!-- Server files -->
+    <div style="margin-bottom:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); padding:6px 0 2px;">🍳 Server-Side Files (run on Vercel, invisible to users)</div>
+    <table class="data-table" style="margin-bottom:20px;">
+      <tr><th>File</th><th>Job Title</th><th>What it does</th></tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">middleware.ts</code></td>
+        <td><span class="pill green">The Front Door</span></td>
+        <td>First thing that runs on every page visit. Checks "are you logged in?" — if not, redirects to /login before the page even loads.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/auth.ts</code></td>
+        <td><span class="pill green">The Bouncer</span></td>
+        <td>Configures Google Sign-In. Holds the rule: "only emails in ALLOWED_EMAILS get past the velvet rope."</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/sheets.ts</code></td>
+        <td><span class="pill green">The Google Translator</span></td>
+        <td>The only file that speaks Google Sheets' language. Holds the service-account keys. Everything else asks this file when it needs to read or write the spreadsheet.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/expenses.ts</code></td>
+        <td><span class="pill green">The Data Librarian</span></td>
+        <td>Fetches all expense rows, converts them from raw spreadsheet data into clean objects the app can use, and keeps a 60-second cached copy to avoid repeated Sheets calls.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/settings.ts</code></td>
+        <td><span class="pill green">The Menu Keeper</span></td>
+        <td>Same as the Data Librarian, but for Settings tab data — the dropdown lists (categories, payment modes, etc.).</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">app/actions.ts</code></td>
+        <td><span class="pill green">The Head Chef</span></td>
+        <td>Handles all data-changing operations: add expense, edit expense, delete expense, update settings. Re-checks your login session before touching anything. Clears the cache after every write.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">app/page.tsx</code></td>
+        <td><span class="pill green">The Maître d'</span></td>
+        <td>The home page. Runs on the server, fetches this month's and last month's expenses, then hands them to the Dashboard component to display.</td>
+      </tr>
+    </table>
+
+    <!-- Client files -->
+    <div style="margin-bottom:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#93C5FD; padding:6px 0 2px;">🍽️ Browser-Side Files (run in your tab, what you see)</div>
+    <table class="data-table" style="margin-bottom:20px;">
+      <tr><th>File</th><th>Job Title</th><th>What it does</th></tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/Dashboard.tsx</code></td>
+        <td><span class="pill blue">The Table Setter</span></td>
+        <td>The main dashboard layout. Receives raw expense arrays, runs all the aggregation (totals, category sums, daily buckets), then passes the results down to the four cards and the sidebar.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/cards/OverviewCard.tsx</code></td>
+        <td><span class="pill blue">The Monthly Receipt</span></td>
+        <td>Shows total spend, trend vs. last month, and the month-end forecast. Pure display — receives numbers, renders them.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/cards/PaidByCard.tsx</code></td>
+        <td><span class="pill blue">The Bill Splitter</span></td>
+        <td>Shows how much each family member spent as proportional progress bars. No chart library — drawn with pure CSS.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/cards/CategoryCard.tsx</code></td>
+        <td><span class="pill blue">The Accountant</span></td>
+        <td>Wraps CategoryBars. Adds the toggle button to switch between "proportion %" and "vs. last month %" badge modes.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/cards/DailyTrendCard.tsx</code></td>
+        <td><span class="pill blue">The Timeline</span></td>
+        <td>Wraps the DailyTrend chart. Passes down the "user clicked a day" callback so clicking a chart bar filters the sidebar.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/charts/CategoryBars.tsx</code></td>
+        <td><span class="pill blue">The Bar Painter</span></td>
+        <td>Draws the horizontal category bars using pure CSS — no chart library. Also bundles small categories (under 4%) into an "Other" group.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/charts/DailyTrend.tsx</code></td>
+        <td><span class="pill blue">The Line Artist</span></td>
+        <td>The Recharts-powered line graph of daily spending. Loaded lazily (only when needed) to keep the page fast.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/ExpenseForm.tsx</code></td>
+        <td><span class="pill blue">The Order Pad</span></td>
+        <td>The add/edit form. When empty = new expense. When pre-filled with an existing expense = edit mode. The same component handles both cases.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/TransactionList.tsx</code></td>
+        <td><span class="pill blue">The Receipts Pile</span></td>
+        <td>A reusable list of expense rows. Used in both the dashboard sidebar and the full /expenses history page — same component, different context.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/useFilterParams.ts</code></td>
+        <td><span class="pill blue">The URL Memory</span></td>
+        <td>A hook that reads and writes filter choices to the URL. When you toggle "hide Grocery", this hook puts that into the URL so it survives navigation and can be bookmarked.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/useMediaQuery.ts</code></td>
+        <td><span class="pill blue">The Screen Detective</span></td>
+        <td>Detects if you're on mobile or desktop. The daily trend chart uses this to decide: "click a day → filter sidebar" (desktop) vs. "click a day → navigate to /expenses" (mobile).</td>
+      </tr>
+    </table>
+
+    <!-- Config files -->
+    <div style="margin-bottom:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); padding:6px 0 2px;">🔧 Config & Shared Helpers</div>
+    <table class="data-table" style="margin-bottom:28px;">
+      <tr><th>File</th><th>Job Title</th><th>What it does</th></tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">tailwind.config.ts</code></td>
+        <td><span class="pill gold">The Brand Book</span></td>
+        <td>Defines all the design tokens (colors like <code style="font-size:11px;font-family:monospace">#10121D</code> for the background). Every component references these names instead of raw color codes.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/format.ts</code></td>
+        <td><span class="pill gold">The Number Formatter</span></td>
+        <td>One function: <code style="font-size:11px;font-family:monospace">formatINR()</code>. Formats numbers in Indian style (e.g. 25,000 not 25000). Every ₹ display in the app calls this.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/utils.ts</code></td>
+        <td><span class="pill gold">The List Cleaner</span></td>
+        <td>One function: <code style="font-size:11px;font-family:monospace">unique()</code>. Removes duplicates and empty strings from arrays. Used when building dropdown lists.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">lib/date.ts</code></td>
+        <td><span class="pill gold">The Month Filter</span></td>
+        <td>One function: filters an expense list to a specific month. Simple, but used in multiple places so it lives here to avoid copy-pasting the same date logic.</td>
+      </tr>
+      <tr>
+        <td><code style="font-family:monospace;font-size:12px;">components/icons.tsx</code></td>
+        <td><span class="pill gold">The Icon & Colour Desk</span></td>
+        <td>Maps category names to SVG icons (e.g. "Grocery" → 🛒 icon) and assigns consistent colours. The same category always gets the same colour across all charts and the app header.</td>
+      </tr>
+    </table>
+
+    <!-- ── Folder Blueprint ── -->
+    <h3 style="font-size:18px; margin:8px 0 16px;">🗂️ The Folder Blueprint</h3>
+    <p style="color:var(--muted); font-size:14px; margin-bottom:16px;">Think of this like floors in a building — each floor has a specific purpose:</p>
+
+    <div class="arch-diagram">
+      <div class="arch-layer" style="border-color:rgba(96,165,250,0.3);">
+        <div class="layer-name">📄 app/ — Pages &amp; Actions (the rooms users walk into)</div>
+        <div class="layer-items">
+          <div class="layer-item">page.tsx (Home)</div>
+          <div class="layer-item">actions.ts (Save/Edit/Delete)</div>
+          <div class="layer-item">add/page.tsx</div>
+          <div class="layer-item">expenses/page.tsx</div>
+          <div class="layer-item">settings/page.tsx</div>
+          <div class="layer-item">login/page.tsx</div>
+          <div class="layer-item">layout.tsx</div>
+          <div class="layer-item">globals.css</div>
+        </div>
+      </div>
+      <div class="arch-connector">↓</div>
+      <div class="arch-layer" style="border-color:rgba(96,165,250,0.3);">
+        <div class="layer-name">🧩 components/ — UI Building Blocks (furniture and fixtures)</div>
+        <div class="layer-items">
+          <div class="layer-item">Dashboard.tsx</div>
+          <div class="layer-item">ExpenseForm.tsx</div>
+          <div class="layer-item">TransactionList.tsx</div>
+          <div class="layer-item">BottomNav.tsx</div>
+          <div class="layer-item">FilterDropdown.tsx</div>
+          <div class="layer-item">cards/ (4 cards)</div>
+          <div class="layer-item">charts/ (2 charts)</div>
+          <div class="layer-item">icons.tsx</div>
+        </div>
+      </div>
+      <div class="arch-connector">↓</div>
+      <div class="arch-layer" style="border-color:rgba(0,214,137,0.3);">
+        <div class="layer-name">🔧 lib/ — Shared Logic (the building's plumbing and wiring)</div>
+        <div class="layer-items">
+          <div class="layer-item">sheets.ts</div>
+          <div class="layer-item">expenses.ts</div>
+          <div class="layer-item">settings.ts</div>
+          <div class="layer-item">auth.ts</div>
+          <div class="layer-item">format.ts</div>
+          <div class="layer-item">utils.ts</div>
+          <div class="layer-item">date.ts</div>
+          <div class="layer-item">types.ts</div>
+          <div class="layer-item">useFilterParams.ts</div>
+          <div class="layer-item">useMediaQuery.ts</div>
+        </div>
+      </div>
+      <div class="arch-connector">↓</div>
+      <div class="arch-layer" style="border-color:rgba(245,158,11,0.3);">
+        <div class="layer-name">⚙️ Root config files (the building permits and blueprints)</div>
+        <div class="layer-items">
+          <div class="layer-item">middleware.ts</div>
+          <div class="layer-item">next.config.js</div>
+          <div class="layer-item">tailwind.config.ts</div>
+          <div class="layer-item">.env.local</div>
+          <div class="layer-item">package.json</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Three Scenarios ── -->
+    <h3 style="font-size:18px; margin:32px 0 16px;">🎬 Three Scenarios: Files in Action</h3>
+    <p style="color:var(--muted); font-size:14px; margin-bottom:20px;">Watch which files "talk" during three common situations. Green = server file, blue = browser file.</p>
+
+    <!-- Scenario 1 -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <span style="background:rgba(0,214,137,0.12); border:1px solid rgba(0,214,137,0.3); color:var(--accent); font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.06em;">Scenario 1</span>
+        <h3 style="margin:0; font-size:15px;">You open the app (fresh load)</h3>
+      </div>
+      <div class="flow" style="justify-content:flex-start; flex-wrap:wrap; gap:6px;">
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">middleware.ts<br/><span style="font-weight:400; color:var(--mutedDim);">"logged in?"</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">app/page.tsx<br/><span style="font-weight:400; color:var(--mutedDim);">fetches expenses</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">lib/expenses.ts<br/><span style="font-weight:400; color:var(--mutedDim);">cache hit?</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">lib/sheets.ts<br/><span style="font-weight:400; color:var(--mutedDim);">(if cache miss)</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(96,165,250,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:#93C5FD;">Dashboard.tsx<br/><span style="font-weight:400; color:var(--mutedDim);">renders cards</span></div>
+        <div style="color:var(--muted); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(96,165,250,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:#93C5FD;">4 Cards + Charts<br/><span style="font-weight:400; color:var(--mutedDim);">you see the UI</span></div>
+      </div>
+    </div>
+
+    <!-- Scenario 2 -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <span style="background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); color:var(--gold); font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.06em;">Scenario 2</span>
+        <h3 style="margin:0; font-size:15px;">You add a new expense</h3>
+      </div>
+      <div class="flow" style="justify-content:flex-start; flex-wrap:wrap; gap:6px;">
+        <div style="background:var(--surface2); border:1px solid rgba(96,165,250,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:#93C5FD;">ExpenseForm.tsx<br/><span style="font-weight:400; color:var(--mutedDim);">user clicks Save</span></div>
+        <div style="color:var(--muted); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">app/actions.ts<br/><span style="font-weight:400; color:var(--mutedDim);">auth check</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">lib/sheets.ts<br/><span style="font-weight:400; color:var(--mutedDim);">write row</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center; align-items:center;">+</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">lib/settings.ts<br/><span style="font-weight:400; color:var(--mutedDim);">promote new values</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">lib/expenses.ts<br/><span style="font-weight:400; color:var(--mutedDim);">clear cache</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(96,165,250,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:#93C5FD;">Dashboard.tsx<br/><span style="font-weight:400; color:var(--mutedDim);">fresh data shown</span></div>
+      </div>
+    </div>
+
+    <!-- Scenario 3 -->
+    <div class="card" style="margin-bottom:24px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <span style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#FCA5A5; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.06em;">Scenario 3</span>
+        <h3 style="margin:0; font-size:15px;">A new family member signs in for the first time</h3>
+      </div>
+      <div class="flow" style="justify-content:flex-start; flex-wrap:wrap; gap:6px;">
+        <div style="background:var(--surface2); border:1px solid rgba(96,165,250,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:#93C5FD;">Login page<br/><span style="font-weight:400; color:var(--mutedDim);">Google button clicked</span></div>
+        <div style="color:var(--muted); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--gold);">Google OAuth<br/><span style="font-weight:400; color:var(--mutedDim);">identity confirmed</span></div>
+        <div style="color:var(--gold); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">lib/auth.ts<br/><span style="font-weight:400; color:var(--mutedDim);">email in list?</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(0,214,137,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--accent);">middleware.ts<br/><span style="font-weight:400; color:var(--mutedDim);">session cookie set</span></div>
+        <div style="color:var(--accent); font-size:16px; align-self:center;">→</div>
+        <div style="background:var(--surface2); border:1px solid rgba(96,165,250,0.3); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; color:#93C5FD;">Dashboard.tsx<br/><span style="font-weight:400; color:var(--mutedDim);">access granted</span></div>
+      </div>
+    </div>
+
+    <div class="analogy">
+      <div class="analogy-title">The "one rule" for understanding any file</div>
+      <p>Ask yourself: <strong>"Does this file run when I click something, or before a page even loads?"</strong><br/>
+      If it runs on click or interaction → it's a <strong style="color:#93C5FD">browser (client) file</strong>.<br/>
+      If it runs before you see the page, or touches secrets/databases → it's a <strong style="color:var(--accent)">server file</strong>.</p>
+    </div>
+
+    <!-- ── Dependency map ── -->
+    <h3 style="font-size:18px; margin:28px 0 16px;">🕸️ Who Depends on Whom?</h3>
+    <p style="color:var(--muted); font-size:14px; margin-bottom:16px;">Arrows mean "this file uses that file." Notice how <code style="font-family:monospace;font-size:12px;color:var(--accent)">lib/sheets.ts</code> is at the bottom — everyone else depends on it, but it depends on nothing inside the project.</p>
+
+    <div class="arch-diagram" style="padding:24px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px;">
+        <div style="background:rgba(96,165,250,0.08); border:1px solid rgba(96,165,250,0.2); border-radius:8px; padding:12px; text-align:center;">
+          <div style="font-size:12px; font-weight:700; color:#93C5FD; margin-bottom:6px;">components/</div>
+          <div style="font-size:11px; color:var(--mutedDim);">Dashboard · Cards · Charts · ExpenseForm · TransactionList</div>
+        </div>
+        <div style="background:rgba(96,165,250,0.08); border:1px solid rgba(96,165,250,0.2); border-radius:8px; padding:12px; text-align:center;">
+          <div style="font-size:12px; font-weight:700; color:#93C5FD; margin-bottom:6px;">app/ pages</div>
+          <div style="font-size:11px; color:var(--mutedDim);">page.tsx · add · expenses · settings · login</div>
+        </div>
+      </div>
+      <div class="arch-connector">↓ uses</div>
+      <div style="background:rgba(0,214,137,0.08); border:1px solid rgba(0,214,137,0.2); border-radius:8px; padding:12px; text-align:center; margin-bottom:10px;">
+        <div style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;">app/actions.ts — The gatekeeper for all writes</div>
+        <div style="font-size:11px; color:var(--mutedDim);">calls lib/expenses.ts · lib/settings.ts · lib/auth.ts</div>
+      </div>
+      <div class="arch-connector">↓ uses</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div style="background:rgba(0,214,137,0.08); border:1px solid rgba(0,214,137,0.2); border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:11px; font-weight:700; color:var(--accent);">lib/expenses.ts</div>
+          <div style="font-size:10px; color:var(--mutedDim); margin-top:3px;">Data Librarian + Cache</div>
+        </div>
+        <div style="background:rgba(0,214,137,0.08); border:1px solid rgba(0,214,137,0.2); border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:11px; font-weight:700; color:var(--accent);">lib/settings.ts</div>
+          <div style="font-size:10px; color:var(--mutedDim); margin-top:3px;">Menu Keeper + Cache</div>
+        </div>
+        <div style="background:rgba(0,214,137,0.08); border:1px solid rgba(0,214,137,0.2); border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:11px; font-weight:700; color:var(--accent);">lib/auth.ts</div>
+          <div style="font-size:10px; color:var(--mutedDim); margin-top:3px;">Bouncer</div>
+        </div>
+      </div>
+      <div class="arch-connector">↓ all depend on</div>
+      <div style="background:rgba(0,214,137,0.15); border:2px solid rgba(0,214,137,0.4); border-radius:8px; padding:14px; text-align:center;">
+        <div style="font-size:13px; font-weight:800; color:var(--accent);">lib/sheets.ts — The Google Translator</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:4px;">The only file that talks directly to Google Sheets API. Everything else goes through here.</div>
+      </div>
+      <div class="arch-connector">↓</div>
+      <div style="background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.2); border-radius:8px; padding:12px; text-align:center;">
+        <div style="font-size:13px; font-weight:700; color:#6EE7B7;">📊 Google Sheets (your data)</div>
+      </div>
+    </div>
+
+    <!-- Quiz 8 -->
+    <div class="quiz" id="quiz-8">
+      <div class="quiz-header"><span class="quiz-badge">✏️ Quick Check</span></div>
+      <h3>You want to change how rupees are formatted (e.g., add paise/decimals). Which file should you edit?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-8', this, false)">
+        <div class="opt-dot">A</div> components/Dashboard.tsx — because that's where ₹ amounts are displayed
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-8', this, true)">
+        <div class="opt-dot">B</div> lib/format.ts — it's the single source of truth for all number formatting
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-8', this, false)">
+        <div class="opt-dot">C</div> lib/sheets.ts — because numbers come from the spreadsheet
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-8', this, false)">
+        <div class="opt-dot">D</div> tailwind.config.ts — it controls how things look
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-8-fb-correct">
+        ✅ Exactly right! <code style="font-family:monospace">lib/format.ts</code> exports the single <code style="font-family:monospace">formatINR()</code> function used everywhere ₹ appears. Change it once there, and every card, list row, and chart label updates automatically.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-8-fb-wrong">
+        ❌ The right answer is <code style="font-family:monospace">lib/format.ts</code> — the Number Formatter. It's the single place that controls all ₹ display formatting. Centralising it means one edit fixes every screen at once, instead of hunting through 10 components.
+      </div>
+    </div>
+
+    <div class="section-complete" id="complete-10">✅ Module 10 complete — you now know every file in the codebase!</div>
+  </section>
+
+  <!-- ════════════════ FINISH ════════════════ -->
+  <section class="section" id="finish" style="padding-bottom: 100px;">
+    <div class="section-header">
+      <div class="section-num" style="background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: var(--gold);">🎓</div>
+      <div>
+        <div class="section-title">You've Completed the Course!</div>
+        <div class="section-subtitle">Full architecture recap</div>
+      </div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--muted); max-width: 680px; margin-bottom: 36px; line-height: 1.8;">
+      Here's everything you now understand about the Family Expenses app, from the spreadsheet all the way to the browser.
+    </p>
+
+    <div class="arch-diagram">
+      <div style="text-align:center; margin-bottom: 20px; font-size: 13px; font-weight: 700; color: var(--mutedDim); text-transform: uppercase; letter-spacing: 0.08em;">Full Architecture</div>
+
+      <div class="arch-layer" style="border-color: rgba(96,165,250,0.3);">
+        <div class="layer-name">🌐 Browser (Client)</div>
+        <div class="layer-items">
+          <div class="layer-item">Dashboard.tsx</div>
+          <div class="layer-item">HistoryView.tsx</div>
+          <div class="layer-item">ExpenseForm.tsx</div>
+          <div class="layer-item">CategoryBars.tsx</div>
+          <div class="layer-item">DailyTrend.tsx</div>
+          <div class="layer-item">FilterDropdown.tsx</div>
+          <div class="layer-item">useFilterParams.ts</div>
+        </div>
+      </div>
+
+      <div class="arch-connector">↕ React server/client boundary</div>
+
+      <div class="arch-layer" style="border-color: rgba(0,214,137,0.3);">
+        <div class="layer-name">⚡ Next.js Server (Vercel)</div>
+        <div class="layer-items">
+          <div class="layer-item">app/page.tsx</div>
+          <div class="layer-item">app/actions.ts</div>
+          <div class="layer-item">lib/expenses.ts</div>
+          <div class="layer-item">lib/settings.ts</div>
+          <div class="layer-item">lib/auth.ts</div>
+          <div class="layer-item">middleware.ts</div>
+        </div>
+      </div>
+
+      <div class="arch-connector">↕ Google Sheets API (service account)</div>
+
+      <div class="arch-layer" style="border-color: rgba(52,211,153,0.3);">
+        <div class="layer-name">📊 Google Sheets (Data Store)</div>
+        <div class="layer-items">
+          <div class="layer-item">Expenses tab (A–J)</div>
+          <div class="layer-item">Settings tab (A–E)</div>
+        </div>
+      </div>
+
+      <div class="arch-connector">↕ Google OAuth</div>
+
+      <div class="arch-layer" style="border-color: rgba(245,158,11,0.3);">
+        <div class="layer-name">🔐 Authentication</div>
+        <div class="layer-items">
+          <div class="layer-item">Google Sign-In</div>
+          <div class="layer-item">ALLOWED_EMAILS</div>
+          <div class="layer-item">Auth.js v5</div>
+          <div class="layer-item">Session cookie</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size: 18px; margin: 32px 0 16px;">Key concepts to remember</h3>
+
+    <table class="data-table">
+      <tr><th>Concept</th><th>One-line explanation</th></tr>
+      <tr><td>Google Sheets backend</td><td>All data lives in a spreadsheet the family owns. No private database.</td></tr>
+      <tr><td>Service account</td><td>A robot Google account that the app uses to read/write the spreadsheet.</td></tr>
+      <tr><td>TTL cache</td><td>Saves a copy of sheet data in memory for 60s to avoid constant API calls.</td></tr>
+      <tr><td>Cache invalidation</td><td>After any write, the cached copy is deleted so the next load gets fresh data.</td></tr>
+      <tr><td>Server actions</td><td>All data writes happen on the server (never directly in the browser) for security.</td></tr>
+      <tr><td>URL-backed filters</td><td>Filter choices live in the URL so they survive navigation and can be shared.</td></tr>
+      <tr><td>Inverted filter logic</td><td>Empty filter = show all. Non-empty = hide those values.</td></tr>
+      <tr><td>Auto-promotion</td><td>New freeform values typed in the expense form are silently added to Settings.</td></tr>
+      <tr><td>ALLOWED_EMAILS</td><td>A comma-separated list of Google emails with access. Managed in Vercel settings.</td></tr>
+      <tr><td>Lazy loading</td><td>Heavy chart library only downloads when needed, keeping first load fast.</td></tr>
+    </table>
+
+    <!-- Final quiz -->
+    <div class="quiz" id="quiz-7">
+      <div class="quiz-header"><span class="quiz-badge">🎓 Final Challenge</span></div>
+      <h3>A family member asks: "Can I just edit the Google Sheet directly to add expenses instead of using the app?" What's the most accurate answer?</h3>
+      <div class="quiz-option" onclick="answerQuiz('quiz-7', this, false)">
+        <div class="opt-dot">A</div> No — the app owns the data. Editing the sheet directly will break it.
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-7', this, true)">
+        <div class="opt-dot">B</div> Yes — but the Month column (A) must be filled in correctly, and the cached data won't update until the cache expires or next save
+      </div>
+      <div class="quiz-option" onclick="answerQuiz('quiz-7', this, false)">
+        <div class="opt-dot">C</div> No — the sheet is read-only; only the app can write to it.
+      </div>
+      <div class="quiz-feedback correct-fb" id="quiz-7-fb-correct">
+        ✅ Great answer! The family owns and can edit the sheet directly — the app is just a layer on top. Just remember: (1) column A needs the YYYY-MM month format, and (2) the cache will serve stale data for up to 60 seconds until it auto-expires.
+      </div>
+      <div class="quiz-feedback wrong-fb" id="quiz-7-fb-wrong">
+        ❌ Actually, the Google Sheet is fully accessible and editable directly — the app never locks it. You can add rows by hand. Just ensure the Month column (A) has the correct YYYY-MM format, and note that cached data in the app won't refresh for up to 60 seconds.
+      </div>
+    </div>
+
+    <!-- Completion card -->
+    <div style="background: linear-gradient(135deg, rgba(0,214,137,0.1) 0%, rgba(0,181,117,0.05) 100%); border: 1px solid rgba(0,214,137,0.25); border-radius: 16px; padding: 32px; margin-top: 32px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 12px;">🎓</div>
+      <h2 style="font-size: 24px; margin-bottom: 8px;">Course Complete!</h2>
+      <p style="color: var(--muted); font-size: 15px; max-width: 480px; margin: 0 auto 24px;">You now understand how the Family Expenses app works — from Google Sheets to authentication to the dashboard charts.</p>
+      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <a href="https://family-expenses-ten.vercel.app" target="_blank" class="start-btn" style="text-decoration:none;">
+          Open the App →
+        </a>
+        <button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="background: var(--surface2); border: 1px solid var(--divider); color: var(--muted); font-size: 14px; padding: 11px 24px; border-radius: 10px; cursor: pointer;">
+          ↑ Back to Top
+        </button>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+  <span class="toggle-icon" id="theme-icon">☀️</span>
+  <span id="theme-label">Light</span>
+</button>
+<button id="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
+
+<script>
+// ── Progress bar ──
+function updateProgress() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+
+  // Scroll-to-top button
+  const btn = document.getElementById('scroll-top');
+  btn.classList.toggle('show', scrollTop > 400);
+}
+
+// ── Intersection observer for section animations ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      updateActiveNav(entry.target.id);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '-80px 0px -20% 0px' });
+
+document.querySelectorAll('.section').forEach(s => observer.observe(s));
+
+// ── Active nav ──
+function updateActiveNav(sectionId) {
+  const map = {
+    'section-1': 1, 'section-2': 2, 'section-3': 3,
+    'section-4': 4, 'section-5': 5, 'section-6': 6,
+    'section-7': 7, 'section-8': 8, 'section-9': 9,
+    'section-10': 10, 'finish': 11
+  };
+  const navLinks = document.querySelectorAll('.nav-item');
+  navLinks.forEach(link => link.classList.remove('active'));
+  const hrefs = {
+    'section-1': '#section-1', 'section-2': '#section-2',
+    'section-3': '#section-3', 'section-4': '#section-4',
+    'section-5': '#section-5', 'section-6': '#section-6',
+    'section-7': '#section-7', 'section-8': '#section-8',
+    'section-9': '#section-9', 'section-10': '#section-10', 'finish': '#finish'
+  };
+  const href = hrefs[sectionId];
+  if (href) {
+    const link = document.querySelector(`.nav-item[href="${href}"]`);
+    if (link) link.classList.add('active');
+  }
+}
+
+function setActive(el) {
+  document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+  el.classList.add('active');
+  // Close mobile nav
+  if (window.innerWidth < 900) toggleNav();
+}
+
+// ── Mobile nav ──
+function toggleNav() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('show');
+}
+
+// ── Quiz logic ──
+function answerQuiz(quizId, optionEl, isCorrect) {
+  const quiz = document.getElementById(quizId);
+  // Already answered?
+  if (quiz.dataset.answered) return;
+  quiz.dataset.answered = '1';
+
+  // Style options
+  const options = quiz.querySelectorAll('.quiz-option');
+  options.forEach(opt => {
+    opt.style.pointerEvents = 'none';
+    if (opt === optionEl) {
+      opt.classList.add(isCorrect ? 'correct' : 'wrong');
+      opt.querySelector('.opt-dot').textContent = isCorrect ? '✓' : '✗';
+    }
+  });
+
+  // Show feedback
+  const fbId = isCorrect ? `${quizId}-fb-correct` : `${quizId}-fb-wrong`;
+  const fb = document.getElementById(fbId);
+  fb.classList.add('show');
+
+  // Mark section complete (find parent section)
+  const section = optionEl.closest('.section');
+  if (section) {
+    const completeId = 'complete-' + section.id.replace('section-', '');
+    const completeBanner = document.getElementById(completeId);
+    if (completeBanner) completeBanner.classList.add('show');
+
+    // Mark nav dot as done
+    const sectionHref = '#' + section.id;
+    const navLink = document.querySelector(`.nav-item[href="${sectionHref}"]`);
+    if (navLink) navLink.classList.add('done');
+  }
+}
+
+// ── Theme toggle ──
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light');
+  document.getElementById('theme-icon').textContent = isLight ? '🌙' : '☀️';
+  document.getElementById('theme-label').textContent = isLight ? 'Dark' : 'Light';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+(function initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'light') {
+    document.documentElement.classList.add('light');
+    document.getElementById('theme-icon').textContent = '🌙';
+    document.getElementById('theme-label').textContent = 'Dark';
+  }
+})();
+
+window.addEventListener('scroll', updateProgress);
+updateProgress();
+
+// Make sections start visible if they're already in view on load
+setTimeout(() => {
+  document.querySelectorAll('.section').forEach(s => {
+    const rect = s.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      s.classList.add('visible');
+    }
+  });
+}, 100);
+</script>
+</body>
+</html>
