@@ -13,7 +13,7 @@ npm run type-check  # tsc --noEmit only (faster than a full build)
 
 No test suite.
 
-After any change: `git add -A && git commit -m "..." && git push` — Vercel auto-deploys from `main` (~2 min). Production URL: `https://family-expenses-ten.vercel.app`.
+After any change: `git add -A && git commit -m "..." && git push` — Vercel auto-deploys from `main` (~2 min). Production URL: `https://family-expenses-ten.vercel.app`. GitHub repo: `https://github.com/AbhijeetCodes/family-expenses` (`gh` CLI is not installed — create PRs by pushing the branch and opening the GitHub URL).
 
 ## Required environment variables
 
@@ -132,6 +132,19 @@ These three fields in `ExpenseForm.tsx` use `<input type="text" list="...">` + `
 On form submit, `app/actions.ts` calls `promoteLookupValues()` which calls `addSettingValues()` from `lib/settings.ts`. That function does a **single read** of the Settings tab, deduplicates case-insensitively, and issues a **single `batchUpdate`** write — so a new value typed by the user silently appears as a suggestion next time without any manual Settings management.
 
 `PaidBy` and `Tags` intentionally stay curated (`<select>` and chip multi-select respectively) — typos there corrupt expense attribution.
+
+### Route map
+
+| Route | Page file | Notes |
+|---|---|---|
+| `/` | `app/page.tsx` | Dashboard — server component, renders `<Dashboard>` + FAB |
+| `/add` | `app/add/page.tsx` | New expense — renders `<ExpenseForm>` + `<BottomNav>` |
+| `/expenses` | `app/expenses/page.tsx` | History — renders `<HistoryView>` + `<BottomNav>` |
+| `/expenses/[rowIndex]` | `app/expenses/[rowIndex]/page.tsx` | Edit expense — renders `<ExpenseForm existing={...}>` + `<BottomNav>` |
+| `/settings` | `app/settings/page.tsx` | Settings — renders `<SettingsSection>` cards + `<BottomNav>` |
+| `/login` | `app/login/page.tsx` | Login — unprotected, renders Google sign-in button |
+
+`BottomNav` (`components/BottomNav.tsx`) is the mobile-only tab bar (hidden on `lg:`). It appears on every page *except* `/` — the dashboard uses a floating "+" FAB instead. `SettingsSection` (`components/SettingsSection.tsx`) uses `useTransition` + local state for optimistic UI: it updates the displayed list immediately and fires the server action in the background.
 
 ### Pages & rendering
 
