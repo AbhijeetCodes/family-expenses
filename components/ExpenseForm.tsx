@@ -20,7 +20,7 @@ const emptyForm = (): Omit<Expense, 'rowIndex'> => ({
   name: '',
   cost: 0,
   paidBy: '',
-  oneTime: true,
+  oneTime: false,
   tags: [],
 })
 

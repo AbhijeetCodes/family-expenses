@@ -2,6 +2,7 @@ import { memo } from 'react'
 import Link from 'next/link'
 import type { Expense } from '@/lib/expenses'
 import { formatINR } from '@/lib/format'
+import { CategoryGlyph, colorForString } from './icons'
 
 type Props = {
   expenses: Expense[]
@@ -40,6 +41,12 @@ function TransactionListInner({
             href={`/expenses/${e.rowIndex}`}
             className={`flex items-center justify-between px-4 ${padY} hover:bg-surface2/40 transition-colors group`}
           >
+            <span
+              className="w-8 h-8 rounded-lg shrink-0 mr-3 flex items-center justify-center"
+              style={{ backgroundColor: `${colorForString(e.expenseType)}26`, color: colorForString(e.expenseType) }}
+            >
+              <CategoryGlyph category={e.expenseType} className="w-4 h-4" />
+            </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-ink truncate">{e.name}</p>
