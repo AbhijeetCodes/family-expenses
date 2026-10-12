@@ -13,6 +13,7 @@ const links = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  if (pathname.startsWith('/login')) return null
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-divider z-40 lg:hidden">
       <div className="flex max-w-lg mx-auto">

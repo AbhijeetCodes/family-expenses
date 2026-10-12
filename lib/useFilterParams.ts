@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useRef } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import type { SortKey, SortDir } from './types'
 
 /**
@@ -26,6 +26,11 @@ import type { SortKey, SortDir } from './types'
  *   q=…  free-text search     (History page)
  *
  * `month` is owned by the parent server component and is preserved untouched.
+ *
+ * Updates go through window.history.replaceState, not router.replace: the
+ * server components only read `month`, so a filter tap needs no server round
+ * trip. Next 15 syncs native history updates into useSearchParams, so the
+ * UI re-renders instantly and the URL stays the source of truth.
  */
 
 const KEYS = {
@@ -76,7 +81,6 @@ export type FilterActions = {
 }
 
 export function useFilterParams(defaults: FilterDefaults = {}): FilterState & FilterActions {
-  const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
 
@@ -116,8 +120,8 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
     const qs = params.toString()
     // `replace` (not `push`) so toggling filters doesn't pile up history
     // entries; back button still takes you to the previous page.
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-  }, [router, pathname])
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
+  }, [pathname])
 
   const setSet = useCallback((urlKey: string, next: Set<string>) => {
     updateParams({ [urlKey]: next.size ? [...next].join(',') : null })
@@ -151,16 +155,9 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
     updateParams({ [KEYS.date]: next })
   }, [updateParams])
 
-  // Search updates fire per keystroke, so they bypass router.replace (which
-  // would re-run the force-dynamic server component on every key). Next 15
-  // syncs native history.replaceState into useSearchParams without a fetch.
   const setSearch = useCallback((next: string) => {
-    const params = new URLSearchParams(spRef.current.toString())
-    if (next) params.set(KEYS.search, next)
-    else params.delete(KEYS.search)
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
-  }, [pathname])
+    updateParams({ [KEYS.search]: next })
+  }, [updateParams])
 
   const clearAll = useCallback(() => {
     updateParams({

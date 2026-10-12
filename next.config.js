@@ -8,6 +8,13 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Keep visited pages in the client router cache for 30 s so switching
+    // tabs / going back is instant. Freshness is handled by <LiveSync>
+    // (checks the sheet on every mount) and router.refresh() after writes,
+    // which clears this cache.
+    staleTimes: { dynamic: 30 },
+  },
   async headers() {
     return [
       {

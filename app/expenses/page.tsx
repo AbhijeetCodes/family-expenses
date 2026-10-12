@@ -1,8 +1,8 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getAllExpenses } from '@/lib/expenses'
+import { getExpensesWithVersion } from '@/lib/expenses'
+import LiveSync from '@/components/LiveSync'
 import { format } from 'date-fns'
-import BottomNav from '@/components/BottomNav'
 import HistoryView from '@/components/HistoryView'
 import { filterByMonth } from '@/lib/date'
 
@@ -20,7 +20,7 @@ export default async function ExpensesPage({
   const monthStr = month ?? format(new Date(), 'yyyy-MM')
   const monthDate = new Date(`${monthStr}-01`)
 
-  const all = await getAllExpenses()
+  const { data: all, version } = await getExpensesWithVersion()
   const monthExpenses = filterByMonth(all, monthStr)
 
   return (
@@ -30,7 +30,7 @@ export default async function ExpensesPage({
         monthLabel={format(monthDate, 'MMMM yyyy')}
         monthStr={monthStr}
       />
-      <BottomNav />
+      <LiveSync version={version} />
     </>
   )
 }

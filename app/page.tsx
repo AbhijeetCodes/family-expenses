@@ -1,9 +1,9 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getAllExpenses } from '@/lib/expenses'
+import { getExpensesWithVersion } from '@/lib/expenses'
+import LiveSync from '@/components/LiveSync'
 import { format, subMonths } from 'date-fns'
 import Dashboard from '@/components/Dashboard'
-import BottomNav from '@/components/BottomNav'
 import { filterByMonth } from '@/lib/date'
 
 export const dynamic = 'force-dynamic'
@@ -33,7 +33,7 @@ export default async function DashboardPage({
   const monthDate = new Date(`${monthStr}-01`)
   const prevMonthStr = format(subMonths(monthDate, 1), 'yyyy-MM')
 
-  const all = await getAllExpenses()
+  const { data: all, version } = await getExpensesWithVersion()
   const thisMonthExpenses = filterByMonth(all, monthStr)
   const prevMonthExpenses = filterByMonth(all, prevMonthStr)
 
@@ -46,7 +46,7 @@ export default async function DashboardPage({
         monthStr={monthStr}
         userName={firstName(session.user?.name)}
       />
-      <BottomNav />
+      <LiveSync version={version} />
     </>
   )
 }

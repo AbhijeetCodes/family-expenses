@@ -91,10 +91,11 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
       {/* Month nav */}
       <header className="bg-surface border-b border-divider px-4 py-3 sticky top-0 z-30">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <Link href={`/expenses?month=${prevMonthStr}`} className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center text-xl rounded-lg hover:bg-surface2 transition-colors">‹</Link>
+          <Link href={`/expenses?month=${prevMonthStr}`} prefetch className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center text-xl rounded-lg hover:bg-surface2 transition-colors">‹</Link>
           <h1 className="font-bold text-ink">{monthLabel}</h1>
           <Link
             href={`/expenses?month=${nextMonthStr}`}
+            prefetch={!isCurrentMonth}
             className={`w-8 h-8 flex items-center justify-center text-xl rounded-lg transition-colors
               ${isCurrentMonth ? 'text-mutedDim/30 pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}
           >›</Link>

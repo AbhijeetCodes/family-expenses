@@ -70,8 +70,10 @@ export default function ExpenseForm({ settings, existing }: Props) {
         } else {
           await createExpenseAction(form, newLookups)
         }
-        router.push('/')
+        // refresh() first: it clears the client router cache, so the push
+        // below can't land on a cached (pre-save) dashboard.
         router.refresh()
+        router.push('/')
       } catch (err) {
         console.error('Save failed', err)
         setError('Save failed — please try again.')
@@ -84,8 +86,8 @@ export default function ExpenseForm({ settings, existing }: Props) {
     startTransition(async () => {
       try {
         await deleteExpenseAction(existing.rowIndex)
-        router.push('/expenses')
         router.refresh()
+        router.push('/expenses')
       } catch (err) {
         console.error('Delete failed', err)
         setError('Delete failed — please try again.')

@@ -36,18 +36,25 @@ Browser → Next.js Server Action (app/actions.ts)
 
 `getSheetsClient()` and `getTabSheetId()` in [lib/sheets.ts](lib/sheets.ts) are **module-scope singletons** — the `GoogleAuth` JWT client and the per-tab `sheetId` lookup are cached for the lifetime of the serverless instance. Never call `sheets.spreadsheets.get()` just to look up a tab's `sheetId`; use `getTabSheetId(TAB_NAME)`.
 
-### Caching & write invariants
+### Caching, live sync & write invariants
 
-`getAllExpenses()` and `getSettings()` use an **in-memory TTL cache** (per serverless instance, default 60 s, overridable via `EXPENSES_CACHE_TTL_MS` / `SETTINGS_CACHE_TTL_MS` env vars). This is the main reason repeat navigation feels fast — most `force-dynamic` page loads inside a session hit the cache, not Sheets.
+`getAllExpenses()` uses a **stale-while-revalidate in-memory cache** (per serverless instance) in [lib/expenses.ts](lib/expenses.ts):
 
-Both functions also **coalesce concurrent cache-miss requests**: the second caller awaits the first's in-flight `Promise` instead of firing a duplicate Sheets request.
+- age < `EXPENSES_CACHE_TTL_MS` (default 5 s) → served from memory
+- age < `EXPENSES_MAX_STALE_MS` (default 5 min) → served from memory instantly, Sheets re-read in the background (kept alive with `after()`)
+- older / empty → blocks on a Sheets read
 
-**Critical invariant:** any server action that mutates Sheets data **must** bust the matching cache, otherwise users see stale data for up to 60 s:
+Concurrent reads coalesce onto one in-flight `Promise`, but only if no write has landed since that read started (`_generation` guard); a read that started before a write never overwrites the cache.
 
-- Writes to the `Expenses` tab → call `invalidateExpensesCache()` from [lib/expenses.ts](lib/expenses.ts)
-- Writes to the `Settings` tab (including `promoteLookupValues`) → call `invalidateSettingsCache()` from [lib/settings.ts](lib/settings.ts)
+**Live sync (sheet → app):** each cache entry carries a `version` (FNV hash of all rows). `/` and `/expenses` render `<LiveSync version={…}>` ([components/LiveSync.tsx](components/LiveSync.tsx)), which calls `getExpensesVersionAction()` on mount, every 10 s while visible, and on focus/online. That action forces a read ≤3 s old; if the version differs, the client calls `router.refresh()`. This is how rows typed directly into the sheet appear in the app.
 
-Do **not** call `revalidatePath()` — all pages are `force-dynamic`, so it is a no-op. The in-memory cache invalidation above is the only bust that matters.
+**Write invariant (app → sheet):** `addExpense` / `updateExpense` / `deleteExpense` **patch the cache in place** (`patchCache`), so the page you land on after saving renders from memory with no Sheets read. Delete shifts later `rowIndex` values down by one, mirroring the sheet. Any new function that writes the `Expenses` tab must call `patchCache` or `invalidateExpensesCache()`.
+
+`getSettings()` keeps a plain 60 s TTL (`SETTINGS_CACHE_TTL_MS`). Writes to the `Settings` tab (including `promoteLookupValues`) → call `invalidateSettingsCache()` from [lib/settings.ts](lib/settings.ts).
+
+Cost is written as a JSON number and the one-time flag as a boolean (still `valueInputOption: 'RAW'`, so nothing is parsed as a formula), so they land as numeric / TRUE-FALSE cells that work with SUM and filters. `rowToExpense` strips currency symbols and separators when parsing cost.
+
+**Client router cache:** `next.config.js` sets `experimental.staleTimes.dynamic = 30`, so revisiting a tab is instant. Anything that mutates data must call `router.refresh()` (clears that cache) **before** `router.push()` — see `ExpenseForm` and `SettingsSection`. `<LiveSync>` corrects any stale cached page on mount. Do not call `revalidatePath()`; it adds a server re-render to the action response and isn't needed.
 
 Independent writes in the same action should run in `Promise.all` (see `createExpenseAction` / `updateExpenseAction` — `addExpense` and `promoteLookupValues` run concurrently). `promoteLookupValues` is only called (and `invalidateSettingsCache` only fired) when the user actually typed a new lookup value; common datalist picks are free.
 
@@ -91,7 +98,7 @@ Common utility classes in [app/globals.css](app/globals.css): `card`, `btn-prima
 
 **Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is a 2×2 analytics card grid, right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column with a FAB. No tabs. The header uses `relative` + `absolute left-1/2 -translate-x-1/2` to keep the month nav dead-centred on all viewports; the desktop right cluster (Add Expense + username) uses `ml-auto`.
 
-**Filter/sort state** lives in the URL (not component `useState`) via the `useFilterParams` hook (`lib/useFilterParams.ts`). This means filters survive navigation between Dashboard and `/expenses`, are bookmarkable, and browser back/forward works. URL keys are terse single letters (`t`, `a`, `m`, `p`, `g`, `one`, `sort`, `dir`, `date`). `month` is owned by the server component and preserved untouched. Filter updates use `router.replace` with `{ scroll: false }` so the back button still leaves the page, not just changes a filter.
+**Filter/sort state** lives in the URL (not component `useState`) via the `useFilterParams` hook (`lib/useFilterParams.ts`). This means filters survive navigation between Dashboard and `/expenses`, are bookmarkable, and browser back/forward works. URL keys are terse (`t`, `a`, `m`, `p`, `g`, `one`, `sort`, `dir`, `date`, `q` = History search). `month` is owned by the server component and preserved untouched. Filter updates use `window.history.replaceState` (not `router.replace`): the server only reads `month`, so filter taps need no server round trip, and Next 15 syncs native history updates into `useSearchParams`. Replace (not push) so the back button still leaves the page.
 
 - Five excluded-value Sets (`excludedTypes`, `excludedApps`, `excludedModes`, `excludedPaidBy`, `excludedTags`) — **inverted logic**: empty = show everything, non-empty = those values are hidden.
 - `excludeOneTime` — Dashboard default `true` (hides big one-offs), HistoryView default `false`.
@@ -140,15 +147,17 @@ On form submit, `app/actions.ts` calls `promoteLookupValues()` which calls `addS
 | `/` | `app/page.tsx` | Dashboard — server component, renders `<Dashboard>` + FAB |
 | `/add` | `app/add/page.tsx` | New expense — renders `<ExpenseForm>` + `<BottomNav>` |
 | `/expenses` | `app/expenses/page.tsx` | History — renders `<HistoryView>` + `<BottomNav>` |
-| `/expenses/[rowIndex]` | `app/expenses/[rowIndex]/page.tsx` | Edit expense — renders `<ExpenseForm existing={...}>` + `<BottomNav>` |
+| `/expenses/[id]` | `app/expenses/[id]/page.tsx` | Edit expense — renders `<ExpenseForm existing={...}>` + `<BottomNav>` |
 | `/settings` | `app/settings/page.tsx` | Settings — renders `<SettingsSection>` cards + `<BottomNav>` |
 | `/login` | `app/login/page.tsx` | Login — unprotected, renders Google sign-in button |
 
-`BottomNav` (`components/BottomNav.tsx`) is the mobile-only tab bar (hidden on `lg:`). It appears on every page *except* `/` — the dashboard uses a floating "+" FAB instead. `SettingsSection` (`components/SettingsSection.tsx`) uses `useTransition` + local state for optimistic UI: it updates the displayed list immediately and fires the server action in the background.
+`BottomNav` (`components/BottomNav.tsx`) is the mobile-only tab bar (hidden on `lg:`). It is rendered once in the root layout (so it doesn't flicker during navigation) and hides itself on `/login`. The dashboard also has a floating "+" FAB. `SettingsSection` (`components/SettingsSection.tsx`) is optimistic: the list updates on tap, the server action runs in a transition, and the change is rolled back with an inline error if it fails.
+
+Every route has a `loading.tsx` rendering a skeleton from [components/Skeletons.tsx](components/Skeletons.tsx), so a tap shows the next screen immediately. Month ‹ › links use `prefetch` (full prefetch for dynamic routes), so switching months is usually instant.
 
 ### Pages & rendering
 
-All pages are `dynamic = 'force-dynamic'`. The in-memory TTL cache (see *Caching & write invariants*) is what keeps these cheap — `force-dynamic` re-runs the React tree on every request, but the underlying Sheets fetch usually hits the cache.
+All pages are `dynamic = 'force-dynamic'`. The in-memory cache (see *Caching, live sync & write invariants*) is what keeps these cheap — `force-dynamic` re-runs the React tree on every request, but the underlying Sheets fetch usually hits the cache.
 
 `ExpenseForm` handles both create (no `existing` prop) and edit (with `existing`) via the same server actions in `app/actions.ts`. **Form submit awaits the action first, then navigates**: `await createExpenseAction(...)` completes before `router.push('/')`, so the dashboard never lands on stale data. The ~300 ms latency is surfaced as a "Saving…" spinner. Errors caught in the `try/catch` render an inline error message in the form — don't restructure this to fire-and-navigate.
 

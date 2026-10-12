@@ -236,9 +236,9 @@ export default function Dashboard({
             Expenses
           </span>
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5">
-            <Link href={`/?month=${prevMonthStr}`} className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface2 transition-colors text-lg">‹</Link>
+            <Link href={`/?month=${prevMonthStr}`} prefetch className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface2 transition-colors text-lg">‹</Link>
             <span className="text-ink font-medium text-sm px-2 min-w-[110px] text-center">{monthLabel}</span>
-            <Link href={`/?month=${nextMonthStr}`} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${isCurrentMonth ? 'text-mutedDim/40 pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}>›</Link>
+            <Link href={`/?month=${nextMonthStr}`} prefetch={!isCurrentMonth} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${isCurrentMonth ? 'text-mutedDim/40 pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}>›</Link>
           </div>
           <div className="ml-auto hidden md:flex items-center gap-3 z-10">
             <Link href="/add" className="flex items-center gap-1.5 bg-accent hover:bg-accent-2 text-base font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors">
