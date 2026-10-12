@@ -45,6 +45,64 @@ export function CogIcon({ className = base }: IconProps) {
   )
 }
 
+export function ChevronLeftIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className} strokeWidth={2}>
+      <path d="M15.75 19.5 8.25 12l7.5-7.5" />
+    </svg>
+  )
+}
+
+export function ChevronRightIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className} strokeWidth={2}>
+      <path d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+    </svg>
+  )
+}
+
+export function ChevronDownIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className} strokeWidth={2}>
+      <path d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+    </svg>
+  )
+}
+
+export function XIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className} strokeWidth={2}>
+      <path d="M6 18 18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+export function CheckIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className} strokeWidth={2}>
+      <path d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
+  )
+}
+
+export function SearchIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className} strokeWidth={2}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  )
+}
+
+/** Sort-direction arrow; points down for descending. */
+export function ArrowDownIcon({ className = base }: IconProps) {
+  return (
+    <svg {...svgProps} className={className} strokeWidth={2}>
+      <path d="M12 4.5v15m0 0 6.75-6.75M12 19.5l-6.75-6.75" />
+    </svg>
+  )
+}
+
 /** Money-jar icon (matches the app's home-screen logo). */
 export function JarIcon({ className = base }: IconProps) {
   return (
@@ -73,15 +131,18 @@ export function PencilIcon({ className = base }: IconProps) {
 
 /* -------- Category color helpers -------- */
 
+// Identity colors for categories and people. Deliberately excludes the brand
+// green (means "action / selected") and red (means "spent more") so a
+// category never reads as a status.
 const PALETTE = [
-  '#00D689', // green (accent)
-  '#3B82F6', // blue
-  '#F59E0B', // amber
-  '#EF4444', // red
-  '#A78BFA', // purple
-  '#EC4899', // pink
-  '#14B8A6', // teal
+  '#38BDF8', // sky
+  '#818CF8', // indigo
+  '#C084FC', // violet
+  '#F472B6', // pink
   '#FB923C', // orange
+  '#FBBF24', // amber
+  '#A3E635', // lime
+  '#2DD4BF', // teal
 ]
 
 export function colorForString(s: string): string {
@@ -175,14 +236,14 @@ export function CategoryGlyph({ category, className = 'w-4 h-4' }: CategoryGlyph
 type AvatarBadgeProps = { initial: string; size?: 'sm' | 'md' }
 export function AvatarBadge({ initial, size = 'md' }: AvatarBadgeProps) {
   const color = colorForString(initial)
-  const sizeClass = size === 'sm' ? 'w-6 h-6 text-[11px]' : 'w-7 h-7 text-xs'
+  const sizeClass = size === 'sm' ? 'w-6 h-6 text-[11px]' : 'w-8 h-8 text-xs'
   return (
-    <div
-      className={`${sizeClass} rounded-full flex items-center justify-center font-bold border-2`}
-      style={{ color, borderColor: color, backgroundColor: `${color}15` }}
+    <span
+      className={`${sizeClass} rounded-full inline-flex items-center justify-center font-semibold shrink-0`}
+      style={{ color, backgroundColor: `${color}24` }}
       aria-hidden
     >
       {(initial || '?').charAt(0).toUpperCase()}
-    </div>
+    </span>
   )
 }

@@ -30,7 +30,7 @@ function LoginContent() {
 
         <button
           onClick={() => signIn('google', { callbackUrl: '/' })}
-          className="w-full flex items-center justify-center gap-3 bg-surface border border-divider
+          className="w-full h-12 flex items-center justify-center gap-3 bg-surface ring-1 ring-inset ring-line-strong
                      rounded-xl py-3 px-4 font-medium text-ink hover:bg-surface2 active:bg-surface2 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

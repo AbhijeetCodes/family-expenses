@@ -4,14 +4,16 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { addSettingAction, deleteSettingAction } from '@/app/actions'
 import type { SettingsData } from '@/lib/settings'
+import { XIcon } from './icons'
 
 type Props = {
   column: keyof SettingsData
   label: string
+  hint?: string
   values: string[]
 }
 
-export default function SettingsSection({ column, label, values: initial }: Props) {
+export default function SettingsSection({ column, label, hint, values: initial }: Props) {
   const [values, setValues] = useState(initial)
   const [input, setInput] = useState('')
   const [pending, startTransition] = useTransition()
@@ -49,46 +51,57 @@ export default function SettingsSection({ column, label, values: initial }: Prop
   }
 
   return (
-    <div className="card space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="font-semibold text-sm text-ink">{label}</h2>
-        {pending && <span className="text-[11px] text-mutedDim">Saving…</span>}
+    <section className="card">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-ink">
+          {label} <span className="ml-1 text-xs font-normal text-mutedDim tabular-nums">{values.length}</span>
+        </h2>
+        {pending && <span className="text-[11px] text-mutedDim" aria-live="polite">Saving…</span>}
       </div>
-      {error && <p className="text-xs text-down">{error}</p>}
-      <div className="flex flex-wrap gap-2">
+      {hint && <p className="text-xs text-mutedDim mt-1">{hint}</p>}
+      {error && <p role="alert" className="text-xs text-down mt-2">{error}</p>}
+
+      <ul className="flex flex-wrap gap-1.5 mt-4">
         {values.map(v => (
-          <span key={v} className="flex items-center gap-1 bg-surface2 text-muted rounded-full px-3 py-1.5 text-sm border border-divider">
+          <li key={v} className="inline-flex items-center h-8 pl-3 pr-1 rounded-full bg-surface2 text-sm text-ink">
             {v}
             <button
+              type="button"
               onClick={() => remove(v)}
               disabled={pending}
-              className="text-mutedDim hover:text-down transition-colors leading-none ml-1"
+              className="ml-1 w-6 h-6 rounded-full inline-flex items-center justify-center text-mutedDim
+                         hover:text-down hover:bg-down/10 transition-colors disabled:opacity-40"
               aria-label={`Remove ${v}`}
             >
-              ×
+              <XIcon className="w-3 h-3" />
             </button>
-          </span>
+          </li>
         ))}
-        {values.length === 0 && <p className="text-xs text-mutedDim">No values yet</p>}
-      </div>
-      <div className="flex gap-2">
+        {values.length === 0 && <li className="text-xs text-mutedDim">Nothing added yet.</li>}
+      </ul>
+
+      <form
+        className="flex gap-2 mt-4"
+        onSubmit={e => { e.preventDefault(); add() }}
+      >
         <input
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), add())}
-          placeholder={`Add ${label.toLowerCase()}…`}
-          className="input-field flex-1"
+          placeholder={`Add to ${label.toLowerCase()}`}
+          aria-label={`Add to ${label.toLowerCase()}`}
+          className="input-field !h-10 flex-1"
         />
         <button
-          onClick={add}
+          type="submit"
           disabled={!input.trim()}
-          className="px-4 py-2 bg-accent text-base rounded-xl text-sm font-medium
-                     disabled:opacity-40 hover:bg-accent-2 transition-colors"
+          className="h-10 px-4 rounded-xl bg-surface2 text-ink text-sm font-semibold
+                     transition-[background-color,transform] duration-150 ease-crisp
+                     hover:bg-surface3 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
         >
           Add
         </button>
-      </div>
-    </div>
+      </form>
+    </section>
   )
 }

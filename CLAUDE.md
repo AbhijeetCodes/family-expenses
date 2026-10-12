@@ -82,26 +82,32 @@ Defined in [tailwind.config.ts](tailwind.config.ts). Use these semantic tokens �
 
 | Token | Hex | Use |
 |---|---|---|
-| `base` | `#10121D` | Page background |
-| `surface` | `#1A1D2D` | Cards, sticky headers, dropdowns |
-| `surface2` | `#252836` | Hover/inner elements, input bg, pills |
-| `divider` | `#262A3D` | Borders, rule lines |
-| `accent` / `accent-2` | `#00D689` / `#00B575` | Primary CTA, brand, success |
-| `ink` / `muted` / `mutedDim` | `#FFFFFF` / `#94A3B8` / `#64748B` | Primary / secondary / tertiary text |
-| `up` / `down` | `#22C55E` / `#EF4444` | Positive / negative trends, destructive |
+| `base` | `#10121D` | Page background (sticky headers/nav use `bg-base/90` + blur) |
+| `well` | `#0C0E17` | Inset fills: inputs, bar tracks, segmented controls — darker than the surface they sit on |
+| `surface` | `#1A1D2D` | Cards |
+| `surface2` / `surface3` | `#252836` / `#2E3243` | Popovers, pills, row hover / hover on `surface2` |
+| `line` / `line-strong` | `rgba(255,255,255,.07 / .12)` | Hairline borders. **Never add an opacity modifier** (`border-line/50`) — Tailwind would replace the alpha, not multiply it |
+| `divider` | `#262A3D` | Solid rule (legacy; prefer `line`) |
+| `accent` / `accent-2` | `#00D689` / `#00B575` | Primary CTA, brand, selection, focus ring — nothing decorative |
+| `ink` / `muted` / `mutedDim` / `faint` | `#FFFFFF` / `#94A3B8` / `#64748B` / `#475066` | Primary / secondary / tertiary / disabled-placeholder text |
+| `up` / `down` | `#22C55E` / `#EF4444` | Spend deltas only (less spent / more spent) and destructive actions. Filters are **not** red |
 
-Common utility classes in [app/globals.css](app/globals.css): `card`, `btn-primary`, `btn-secondary`, `input-field`, `label`, `page-header`, `pill`, `pill-default`, `pill-active`. Prefer these over inline className stacks for consistency.
+Depth is one strategy: a 1px translucent ring (`shadow-card`, `shadow-popover`), no drop shadows on cards. Motion: name the properties (`transition-[background-color,transform]`, never `transition-all`), `ease-crisp` (`cubic-bezier(0.23,1,0.32,1)`), ≤300 ms, `active:scale-[0.97]` press feedback.
+
+Common classes in [app/globals.css](app/globals.css): `card`, `btn-primary`, `btn-secondary`, `icon-btn` (40px square for arrows/back), `input-field`, `label`, `eyebrow` (uppercase card/section title), `page-header` + `page-header-row`, `pill` + `pill-default` / `pill-active` (a filter is doing something — neutral) / `pill-selected` (chosen option in a form — accent). Utilities: `pt-safe` / `pb-safe` (iOS safe-area insets; the viewport is `viewport-fit=cover`), `pb-nav` (room for BottomNav on mobile), `scrollbar-none`, `animate-pop-in` (popover entrance). Prefer these over inline className stacks.
+
+`colorForString()`'s identity palette deliberately excludes the accent green and the `down` red so a category or person never reads as a status.
 
 ### Dashboard architecture
 
 [app/page.tsx](app/page.tsx) is a thin server component: it fetches `thisMonthExpenses` and `prevMonthExpenses` from Sheets, then renders `<Dashboard>`. All aggregation happens client-side inside [components/Dashboard.tsx](components/Dashboard.tsx).
 
-**Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is a 2×2 analytics card grid, right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column with a FAB. No tabs. The header uses `relative` + `absolute left-1/2 -translate-x-1/2` to keep the month nav dead-centred on all viewports; the desktop right cluster (Add Expense + username) uses `ml-auto`.
+**Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is the full-width Overview hero (the focal point) above a Category | Daily spending pair; right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column; adding is the filled "Add" item in `BottomNav` (no FAB). No tabs. The header uses `relative` + `absolute left-1/2 -translate-x-1/2` to keep `<MonthNav>` dead-centred on all viewports; the desktop right cluster (History link, Settings icon, Add expense) uses `ml-auto` — on lg the BottomNav is hidden, so these links are the desktop navigation.
 
 **Filter/sort state** lives in the URL (not component `useState`) via the `useFilterParams` hook (`lib/useFilterParams.ts`). This means filters survive navigation between Dashboard and `/expenses`, are bookmarkable, and browser back/forward works. URL keys are terse (`t`, `a`, `m`, `p`, `g`, `one`, `sort`, `dir`, `date`, `q` = History search). `month` is owned by the server component and preserved untouched. Filter updates use `window.history.replaceState` (not `router.replace`): the server only reads `month`, so filter taps need no server round trip, and Next 15 syncs native history updates into `useSearchParams`. Replace (not push) so the back button still leaves the page.
 
 - Five excluded-value Sets (`excludedTypes`, `excludedApps`, `excludedModes`, `excludedPaidBy`, `excludedTags`) — **inverted logic**: empty = show everything, non-empty = those values are hidden.
-- `excludeOneTime` — Dashboard default `true` (hides big one-offs), HistoryView default `false`.
+- `excludeOneTime` — Dashboard default `true` (hides big one-offs), HistoryView default `false`. `activeFilterCount()` (in `FilterBar.tsx`) only counts it when it differs from the page default, so "Clear" never shows for the default state.
 - `showComparison` (toggles `CategoryCard` badge column — proportion % vs delta % vs last month). Owned by Dashboard local `useState`, not URL-backed.
 - `sortKey`, `sortDir`, `selectedDate` — URL-backed via `useFilterParams`.
 
@@ -113,20 +119,22 @@ Common utility classes in [app/globals.css](app/globals.css): `card`, `btn-prima
 
 All cards are wrapped in `React.memo` so toggling a filter only re-renders cards whose data props actually changed. The Dashboard passes pre-computed memoized data via `useMemo`, and handlers via `useCallback`, so referential identity is preserved across renders.
 
-- `OverviewCard` — total + trend pill + month-end linear forecast (only shown when viewing the current month: `(total / day-of-month) * days-in-month`)
-- `PaidByCard` — custom horizontal progress bars + avatar pile (no Recharts; faster, matches mockup)
-- `CategoryCard` — wraps `CategoryBars`; passes `showComparison` to switch badge mode
-- `DailyTrendCard` — wraps `DailyTrend`; accepts `onSelectDay?: (day: string) => void` which it forwards straight through to the chart
+- `OverviewCard` — the hero: month total, delta vs last month, and (current month only) a pace bar: spent → linear forecast `(total / day-of-month) * days-in-month`, with a tick at last month's full total. For the current month the delta compares against `compareTotal` = last month **up to the same day** (a full month vs 12 days always looks like a saving); for past months, last month's full total. Renders `PaidBySplit` in its right column.
+- `PaidBySplit` — stacked proportion bar + a row per person (no Recharts)
+- `CategoryCard` — wraps `CategoryBars`; a Share / vs-last-month segmented control switches the badge mode
+- `DailyTrendCard` — wraps `DailyTrend`; takes the zero-filled per-day series, `average`, `selectedDate`, and `onSelectDay?: (day: string) => void`
 
-The transaction list is rendered by the shared `components/TransactionList.tsx` component. Both `Dashboard.tsx` (sidebar) and `HistoryView.tsx` (/expenses page) use it. Props: `expenses`, `showTags?`, `density?: 'compact' | 'comfortable'`, `dividerTone?: 'soft' | 'standard'`. The component is wrapped in `React.memo` and uses `formatINR` for consistent currency display.
+Shared building blocks: `MonthNav` (‹ Month › with 40px targets; Dashboard and History), `FilterBar` (single horizontally-scrolling row of `FilterDropdown`s + one-time toggle + Clear; Dashboard and History), `SortToggle` (Date / Amount / Name segmented control; tapping the active segment flips direction). `FilterDropdown`'s menu is `position: fixed` (so the scrolling row can't clip it), closes on Escape / outside tap / scroll, and returns focus to its trigger.
+
+The transaction list is rendered by the shared `components/TransactionList.tsx` component. Both `Dashboard.tsx` (sidebar) and `HistoryView.tsx` (/expenses page) use it. Props: `expenses`, `showTags?`, `density?: 'compact' | 'comfortable'`, `groupByDay?` — pass `groupByDay={sortKey === 'date'}`: rows are grouped under "Today" / "Yesterday" / "Thu, 8 Oct" headers with that day's total (only meaningful when sorted by date). The component is wrapped in `React.memo` and uses `formatINR` for consistent currency display.
 
 ### Charts ([components/charts/](components/charts/))
 
 `CategoryBars` is a pure-CSS horizontal bar list — no Recharts, imported directly. Each row renders a `CategoryGlyph` icon chip, category name, a proportional bar, ₹ value, and a badge. Badge shows proportion % by default; when `showComparison` is true it shows a colored delta % vs last month (more spent = red `down`, less = green `up`). Slices under **4%** of total are bucketed into a gray "Other" row.
 
-`DailyTrend` uses Recharts and is loaded via `next/dynamic` with `ssr: false` from inside `DailyTrendCard`. This keeps Recharts (~200–300 KB) off the initial JS bundle. Any new Recharts component should follow the same pattern with a fixed-height skeleton in the `loading` prop to avoid layout shift. All Recharts components use `isAnimationActive={false}` — use CSS transitions instead if animation is needed.
+`DailyTrend` is a Recharts `BarChart` — one bar per calendar day, zero-filled (an area chart drew a line straight across no-spend days), a dashed reference line at the daily average, and the selected/hovered day at full opacity. When the biggest day is > 2.5× the runner-up (rent on the 1st), the y-axis is capped just above the runner-up and the clipped bar is labelled with its real value. It is loaded via `next/dynamic` with `ssr: false` from inside `DailyTrendCard`. This keeps Recharts (~200–300 KB) off the initial JS bundle. Any new Recharts component should follow the same pattern with a fixed-height skeleton in the `loading` prop to avoid layout shift. All Recharts components use `isAnimationActive={false}` — use CSS transitions instead if animation is needed.
 
-`DailyTrend` wires click to `<AreaChart onClick>`, not the tooltip. Do not move it to the tooltip — Recharts moves the tooltip as the cursor approaches it, making it unclickable in practice.
+`DailyTrend` wires click to `<BarChart onClick>`, not the tooltip. Do not move it to the tooltip — Recharts moves the tooltip as the cursor approaches it, making it unclickable in practice.
 
 Colors come from `colorForString()` in [components/icons.tsx](components/icons.tsx) — a deterministic hash → 8-color palette. The same function drives `CategoryGlyph` chip backgrounds, `CategoryBars` bars, `AvatarBadge`, and `PaidByCard` bars, so a category/person looks consistent across the whole UI.
 
@@ -138,20 +146,22 @@ These three fields in `ExpenseForm.tsx` use `<input type="text" list="...">` + `
 
 On form submit, `app/actions.ts` calls `promoteLookupValues()` which calls `addSettingValues()` from `lib/settings.ts`. That function does a **single read** of the Settings tab, deduplicates case-insensitively, and issues a **single `batchUpdate`** write — so a new value typed by the user silently appears as a suggestion next time without any manual Settings management.
 
-`PaidBy` and `Tags` intentionally stay curated (`<select>` and chip multi-select respectively) — typos there corrupt expense attribution.
+`PaidBy` and `Tags` intentionally stay curated (one-tap radio chips and chip multi-select respectively) — typos there corrupt expense attribution.
+
+Form order is deliberate: **Amount** (large, autofocused on create) and description first, then Paid by, Type, Date (with Today / Yesterday shortcuts), the optional App / Payment mode pair, the one-time switch (`role="switch"`), and tags. Validation errors render beside the submit button, not at the top of the form.
 
 ### Route map
 
 | Route | Page file | Notes |
 |---|---|---|
-| `/` | `app/page.tsx` | Dashboard — server component, renders `<Dashboard>` + FAB |
+| `/` | `app/page.tsx` | Dashboard — server component, renders `<Dashboard>` |
 | `/add` | `app/add/page.tsx` | New expense — renders `<ExpenseForm>` + `<BottomNav>` |
 | `/expenses` | `app/expenses/page.tsx` | History — renders `<HistoryView>` + `<BottomNav>` |
 | `/expenses/[id]` | `app/expenses/[id]/page.tsx` | Edit expense — renders `<ExpenseForm existing={...}>` + `<BottomNav>` |
 | `/settings` | `app/settings/page.tsx` | Settings — renders `<SettingsSection>` cards + `<BottomNav>` |
 | `/login` | `app/login/page.tsx` | Login — unprotected, renders Google sign-in button |
 
-`BottomNav` (`components/BottomNav.tsx`) is the mobile-only tab bar (hidden on `lg:`). It is rendered once in the root layout (so it doesn't flicker during navigation) and hides itself on `/login`. The dashboard also has a floating "+" FAB. `SettingsSection` (`components/SettingsSection.tsx`) is optimistic: the list updates on tap, the server action runs in a transition, and the change is rolled back with an inline error if it fails.
+`BottomNav` (`components/BottomNav.tsx`) is the mobile-only tab bar (hidden on `lg:`), padded for the iOS home indicator. It is rendered once in the root layout (so it doesn't flicker during navigation) and hides itself on `/login`. Its "Add" item is a filled accent pill — the only "+" on mobile. On desktop, History and Settings are reached from the dashboard header, and both pages have a back chevron (lg only). `SettingsSection` (`components/SettingsSection.tsx`) is optimistic: the list updates on tap, the server action runs in a transition, and the change is rolled back with an inline error if it fails.
 
 Every route has a `loading.tsx` rendering a skeleton from [components/Skeletons.tsx](components/Skeletons.tsx), so a tap shows the next screen immediately. Month ‹ › links use `prefetch` (full prefetch for dynamic routes), so switching months is usually instant.
 

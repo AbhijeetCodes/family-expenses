@@ -6,27 +6,39 @@ import CategoryBars from '../charts/CategoryBars'
 type Datum = { name: string; current: number; prev: number }
 type Props = {
   data: Datum[]
+  prevMonthName: string
   showComparison: boolean
   onToggleComparison: () => void
 }
 
-function CategoryCardInner({ data, showComparison, onToggleComparison }: Props) {
+function CategoryCardInner({ data, prevMonthName, showComparison, onToggleComparison }: Props) {
   return (
-    <div className="card flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <p className="label mb-0">Category</p>
-        <button
-          onClick={onToggleComparison}
-          className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors
-            ${showComparison
-              ? 'text-accent border-accent/40 bg-accent/10'
-              : 'text-muted border-divider hover:text-ink hover:bg-surface2'}`}
-        >
-          {showComparison ? '↕ vs last month' : 'vs last month'}
-        </button>
+    <section className="card flex flex-col">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="eyebrow">By category</h2>
+        <div className="flex items-center bg-well rounded-[10px] p-0.5 ring-1 ring-inset ring-line text-xs" role="group" aria-label="Badge shows">
+          {[
+            { on: false, label: 'Share' },
+            { on: true,  label: `vs ${prevMonthName.slice(0, 3)}` },
+          ].map(o => {
+            const active = showComparison === o.on
+            return (
+              <button
+                key={o.label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => { if (!active) onToggleComparison() }}
+                className={`h-7 px-2.5 rounded-lg font-medium transition-[background-color,color] duration-150 ease-crisp
+                  ${active ? 'bg-surface2 text-ink shadow-card' : 'text-mutedDim hover:text-ink'}`}
+              >
+                {o.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
       <CategoryBars data={data} showComparison={showComparison} />
-    </div>
+    </section>
   )
 }
 

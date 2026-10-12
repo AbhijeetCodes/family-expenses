@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import type { SortKey, SortDir } from './types'
 
@@ -84,11 +84,6 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
   const pathname = usePathname()
   const sp = useSearchParams()
 
-  // Stale-closure guard: setters reference spRef.current rather than the sp
-  // captured in their useCallback closure, so chained updates (e.g. clearAll
-  // touching 6 keys) start from the latest URL state.
-  const spRef = useRef(sp)
-  spRef.current = sp
 
   const defOneTime = defaults.excludeOneTime ?? false
   const defSortKey = defaults.sortKey ?? 'date'
@@ -112,7 +107,9 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
   }, [sp, defOneTime, defSortKey, defSortDir])
 
   const updateParams = useCallback((updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(spRef.current.toString())
+    // Read the live URL, not the rendered searchParams: chained updates in
+    // the same tick (clear filters + search + date) must each see the last.
+    const params = new URLSearchParams(window.location.search)
     for (const [key, value] of Object.entries(updates)) {
       if (value === null || value === '') params.delete(key)
       else params.set(key, value)
@@ -146,7 +143,7 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
   }, [updateParams, defSortDir])
 
   const toggleSortDir = useCallback(() => {
-    const current = (spRef.current.get(KEYS.sortDir) ?? defSortDir) as SortDir
+    const current = (new URLSearchParams(window.location.search).get(KEYS.sortDir) ?? defSortDir) as SortDir
     const next: SortDir = current === 'desc' ? 'asc' : 'desc'
     updateParams({ [KEYS.sortDir]: next === defSortDir ? null : next })
   }, [updateParams, defSortDir])
