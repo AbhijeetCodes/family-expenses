@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useRef } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import type { SortKey, SortDir } from './types'
 
 /**
@@ -23,8 +23,14 @@ import type { SortKey, SortDir } from './types'
  *   sort=date|cost|name       only present when ≠ default
  *   dir=desc|asc              only present when ≠ default
  *   date=YYYY-MM-DD           optional drill-down day
+ *   q=…  free-text search     (History page)
  *
  * `month` is owned by the parent server component and is preserved untouched.
+ *
+ * Updates go through window.history.replaceState, not router.replace: the
+ * server components only read `month`, so a filter tap needs no server round
+ * trip. Next 15 syncs native history updates into useSearchParams, so the
+ * UI re-renders instantly and the URL stays the source of truth.
  */
 
 const KEYS = {
@@ -37,6 +43,7 @@ const KEYS = {
   sortKey: 'sort',
   sortDir: 'dir',
   date: 'date',
+  search: 'q',
 } as const
 
 export type FilterDefaults = {
@@ -55,6 +62,7 @@ export type FilterState = {
   sortKey: SortKey
   sortDir: SortDir
   selectedDate: string | null
+  search: string
 }
 
 export type FilterActions = {
@@ -68,11 +76,11 @@ export type FilterActions = {
   setSortDir: (next: SortDir) => void
   toggleSortDir: () => void
   setSelectedDate: (next: string | null) => void
+  setSearch: (next: string) => void
   clearAll: () => void
 }
 
 export function useFilterParams(defaults: FilterDefaults = {}): FilterState & FilterActions {
-  const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
 
@@ -99,6 +107,7 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
       sortKey:        (sp.get(KEYS.sortKey) ?? defSortKey) as SortKey,
       sortDir:        (sp.get(KEYS.sortDir) ?? defSortDir) as SortDir,
       selectedDate:   sp.get(KEYS.date),
+      search:         sp.get(KEYS.search) ?? '',
     }
   }, [sp, defOneTime, defSortKey, defSortDir])
 
@@ -111,8 +120,8 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
     const qs = params.toString()
     // `replace` (not `push`) so toggling filters doesn't pile up history
     // entries; back button still takes you to the previous page.
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-  }, [router, pathname])
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
+  }, [pathname])
 
   const setSet = useCallback((urlKey: string, next: Set<string>) => {
     updateParams({ [urlKey]: next.size ? [...next].join(',') : null })
@@ -146,6 +155,10 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
     updateParams({ [KEYS.date]: next })
   }, [updateParams])
 
+  const setSearch = useCallback((next: string) => {
+    updateParams({ [KEYS.search]: next })
+  }, [updateParams])
+
   const clearAll = useCallback(() => {
     updateParams({
       [KEYS.types]: null, [KEYS.apps]: null, [KEYS.modes]: null,
@@ -158,6 +171,6 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
     setExcludedTypes, setExcludedApps, setExcludedModes,
     setExcludedPaidBy, setExcludedTags,
     setExcludeOneTime, setSortKey, setSortDir, toggleSortDir,
-    setSelectedDate, clearAll,
+    setSelectedDate, setSearch, clearAll,
   }
 }

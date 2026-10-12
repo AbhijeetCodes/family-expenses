@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { addExpense, updateExpense, deleteExpense, invalidateExpensesCache, type Expense } from '@/lib/expenses'
+import { addExpense, updateExpense, deleteExpense, getExpensesVersion, type Expense } from '@/lib/expenses'
 import { addSettingValue, addSettingValues, deleteSettingValue, invalidateSettingsCache, type SettingsData } from '@/lib/settings'
 import { redirect } from 'next/navigation'
 
@@ -66,7 +66,7 @@ export async function createExpenseAction(
     addExpense(data),
     hasNewLookups ? promoteLookupValues(newLookups) : Promise.resolve(),
   ])
-  invalidateExpensesCache()
+  // addExpense / updateExpense patch the expenses cache in place themselves.
   if (hasNewLookups) invalidateSettingsCache()
 }
 
@@ -83,15 +83,25 @@ export async function updateExpenseAction(
     updateExpense(rowIndex, data),
     hasNewLookups ? promoteLookupValues(newLookups) : Promise.resolve(),
   ])
-  invalidateExpensesCache()
+  // addExpense / updateExpense patch the expenses cache in place themselves.
   if (hasNewLookups) invalidateSettingsCache()
 }
 
 export async function deleteExpenseAction(rowIndex: number) {
   await requireAuth()
   assertValidRowIndex(rowIndex)
-  await deleteExpense(rowIndex)
-  invalidateExpensesCache()
+  await deleteExpense(rowIndex)  // patches the expenses cache in place
+}
+
+/**
+ * Polled by <LiveSync>: the version of the Expenses tab as it is in Sheets
+ * right now (≤3 s old). The client compares it with the version its page was
+ * rendered from and refreshes when they differ — this is how edits made
+ * directly in the sheet show up in the app.
+ */
+export async function getExpensesVersionAction(): Promise<string> {
+  await requireAuth()
+  return getExpensesVersion()
 }
 
 export async function addSettingAction(column: keyof SettingsData, value: string) {

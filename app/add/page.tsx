@@ -2,7 +2,6 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getSettings } from '@/lib/settings'
 import ExpenseForm from '@/components/ExpenseForm'
-import BottomNav from '@/components/BottomNav'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -22,7 +21,6 @@ export default async function AddPage() {
       <div className="max-w-lg mx-auto px-4 py-4">
         <ExpenseForm settings={settings} />
       </div>
-      <BottomNav />
     </div>
   )
 }

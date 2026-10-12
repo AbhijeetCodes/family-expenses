@@ -1,7 +1,6 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getSettings, type SettingsData } from '@/lib/settings'
-import BottomNav from '@/components/BottomNav'
 import SettingsSection from '@/components/SettingsSection'
 import SignOutButton from '@/components/SignOutButton'
 
@@ -38,7 +37,6 @@ export default async function SettingsPage() {
           <SignOutButton />
         </div>
       </div>
-      <BottomNav />
     </div>
   )
 }
