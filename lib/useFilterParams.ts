@@ -23,6 +23,7 @@ import type { SortKey, SortDir } from './types'
  *   sort=date|cost|name       only present when ≠ default
  *   dir=desc|asc              only present when ≠ default
  *   date=YYYY-MM-DD           optional drill-down day
+ *   q=…  free-text search     (History page)
  *
  * `month` is owned by the parent server component and is preserved untouched.
  */
@@ -37,6 +38,7 @@ const KEYS = {
   sortKey: 'sort',
   sortDir: 'dir',
   date: 'date',
+  search: 'q',
 } as const
 
 export type FilterDefaults = {
@@ -55,6 +57,7 @@ export type FilterState = {
   sortKey: SortKey
   sortDir: SortDir
   selectedDate: string | null
+  search: string
 }
 
 export type FilterActions = {
@@ -68,6 +71,7 @@ export type FilterActions = {
   setSortDir: (next: SortDir) => void
   toggleSortDir: () => void
   setSelectedDate: (next: string | null) => void
+  setSearch: (next: string) => void
   clearAll: () => void
 }
 
@@ -99,6 +103,7 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
       sortKey:        (sp.get(KEYS.sortKey) ?? defSortKey) as SortKey,
       sortDir:        (sp.get(KEYS.sortDir) ?? defSortDir) as SortDir,
       selectedDate:   sp.get(KEYS.date),
+      search:         sp.get(KEYS.search) ?? '',
     }
   }, [sp, defOneTime, defSortKey, defSortDir])
 
@@ -146,6 +151,17 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
     updateParams({ [KEYS.date]: next })
   }, [updateParams])
 
+  // Search updates fire per keystroke, so they bypass router.replace (which
+  // would re-run the force-dynamic server component on every key). Next 15
+  // syncs native history.replaceState into useSearchParams without a fetch.
+  const setSearch = useCallback((next: string) => {
+    const params = new URLSearchParams(spRef.current.toString())
+    if (next) params.set(KEYS.search, next)
+    else params.delete(KEYS.search)
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
+  }, [pathname])
+
   const clearAll = useCallback(() => {
     updateParams({
       [KEYS.types]: null, [KEYS.apps]: null, [KEYS.modes]: null,
@@ -158,6 +174,6 @@ export function useFilterParams(defaults: FilterDefaults = {}): FilterState & Fi
     setExcludedTypes, setExcludedApps, setExcludedModes,
     setExcludedPaidBy, setExcludedTags,
     setExcludeOneTime, setSortKey, setSortDir, toggleSortDir,
-    setSelectedDate, clearAll,
+    setSelectedDate, setSearch, clearAll,
   }
 }

@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { format, subMonths, addMonths } from 'date-fns'
+import { format, subMonths, addMonths, endOfMonth } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import FilterDropdown from './FilterDropdown'
 import TransactionList from './TransactionList'
@@ -23,10 +23,21 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
   // *not* hiding one-time expenses (the page is meant to show everything).
   const {
     excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags,
-    excludeOneTime, sortKey, sortDir, selectedDate,
+    excludeOneTime, sortKey, sortDir, selectedDate, search,
     setExcludedTypes, setExcludedApps, setExcludedModes, setExcludedPaidBy, setExcludedTags,
-    setExcludeOneTime, setSortKey, toggleSortDir, setSelectedDate, clearAll,
+    setExcludeOneTime, setSortKey, toggleSortDir, setSelectedDate, setSearch, clearAll,
   } = useFilterParams({ excludeOneTime: false, sortKey: 'date', sortDir: 'desc' })
+
+  // Input is local state (instant typing); URL is synced alongside so the
+  // search survives reloads / back. Filtering reads the deferred value so a
+  // long list never blocks keystrokes.
+  const [query, setQuery] = useState(search)
+  const deferredQuery = useDeferredValue(query)
+  const needle = deferredQuery.trim().toLowerCase()
+  const onQueryChange = (next: string) => {
+    setQuery(next)
+    setSearch(next.trim())
+  }
 
   const allTypes  = useMemo(() => unique(monthExpenses.map(e => e.expenseType)), [monthExpenses])
   const allApps   = useMemo(() => unique(monthExpenses.map(e => e.app)), [monthExpenses])
@@ -44,6 +55,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
     let sum = 0
     for (const e of monthExpenses) {
       if (selectedDate && e.date !== selectedDate)      continue
+      if (needle && !matchesSearch(e, needle))          continue
       if (excludedTypes.has(e.expenseType))             continue
       if (excludedApps.has(e.app))                      continue
       if (excludedModes.has(e.paymentMode))             continue
@@ -54,7 +66,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
       sum += e.cost
     }
     return { filtered: out, total: sum }
-  }, [monthExpenses, selectedDate, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
+  }, [monthExpenses, selectedDate, needle, excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags, excludeOneTime])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -70,6 +82,9 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
   const prevMonthStr = format(subMonths(monthDate, 1), 'yyyy-MM')
   const nextMonthStr = format(addMonths(monthDate, 1), 'yyyy-MM')
   const isCurrentMonth = monthStr === format(new Date(), 'yyyy-MM')
+  const monthFirstDay  = `${monthStr}-01`
+  const monthLastDay   = format(endOfMonth(monthDate), 'yyyy-MM-dd')
+  const hasNarrowing   = totalActiveFilters > 0 || !!needle || !!selectedDate
 
   return (
     <div className="min-h-screen pb-24">
@@ -88,7 +103,41 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
 
       {/* Filter bar */}
       <div className="bg-surface/60 border-b border-divider/50 sticky top-[57px] z-20 backdrop-blur">
+        <div className="max-w-4xl mx-auto px-4 pt-2">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-mutedDim pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              type="search"
+              value={query}
+              onChange={e => onQueryChange(e.target.value)}
+              placeholder="Search name, type, app, person, tag or amount"
+              className="input-field !py-2 !pl-9 !pr-9 [&::-webkit-search-cancel-button]:hidden"
+              aria-label="Search expenses"
+            />
+            {query && (
+              <button
+                onClick={() => onQueryChange('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-muted hover:text-ink hover:bg-surface flex items-center justify-center text-xs"
+                aria-label="Clear search"
+              >✕</button>
+            )}
+          </div>
+        </div>
         <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
+          <label className={`pill cursor-pointer ${selectedDate ? 'pill-active' : 'pill-default'}`}>
+            <span>Date</span>
+            <input
+              type="date"
+              value={selectedDate ?? ''}
+              min={monthFirstDay}
+              max={monthLastDay}
+              onChange={e => setSelectedDate(e.target.value || null)}
+              className="bg-transparent border-0 p-0 text-xs text-inherit focus:ring-0 [color-scheme:dark] w-[7.5rem]"
+              aria-label="Filter by date"
+            />
+          </label>
           <FilterDropdown label="Type"    options={allTypes}  excluded={excludedTypes}  onChange={setExcludedTypes}  />
           <FilterDropdown label="Paid By" options={allPaidBy} excluded={excludedPaidBy} onChange={setExcludedPaidBy} />
           <FilterDropdown label="App"     options={allApps}   excluded={excludedApps}   onChange={setExcludedApps}   />
@@ -138,22 +187,24 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
         </div>
         <div className="flex items-center gap-1.5 text-xs">
           <span className="text-mutedDim">Sort</span>
-          <select
-            value={sortKey}
-            onChange={e => setSortKey(e.target.value as SortKey)}
-            className="bg-surface2 border border-divider rounded-md text-ink text-xs py-1 px-2 focus:ring-accent focus:border-accent"
-          >
-            <option value="date">Date</option>
-            <option value="cost">Amount</option>
-            <option value="name">Name</option>
-          </select>
-          <button
-            onClick={toggleSortDir}
-            className="text-muted hover:text-ink w-6 h-6 rounded hover:bg-surface2 flex items-center justify-center"
-            title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
-          >
-            {sortDir === 'desc' ? '↓' : '↑'}
-          </button>
+          <div className="flex items-center bg-surface2 rounded-lg p-0.5 border border-divider">
+            {SORT_OPTIONS.map(({ key, label }) => {
+              const active = sortKey === key
+              return (
+                <button
+                  key={key}
+                  // Tapping the active option flips direction; tapping another switches key.
+                  onClick={() => (active ? toggleSortDir() : setSortKey(key))}
+                  className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1
+                    ${active ? 'bg-surface text-ink font-medium' : 'text-muted hover:text-ink'}`}
+                  title={active ? `${label}, ${sortDir === 'desc' ? 'descending' : 'ascending'} — tap to flip` : `Sort by ${label.toLowerCase()}`}
+                >
+                  {label}
+                  {active && <span className="text-accent">{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -161,7 +212,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
       <div className="max-w-4xl mx-auto px-4 py-3">
         {sorted.length === 0 ? (
           <div className="card text-center py-12 text-mutedDim text-sm">
-            {totalActiveFilters > 0 ? 'No transactions match the current filters.' : `No expenses for ${monthLabel}`}
+            {hasNarrowing ? 'No transactions match the current search or filters.' : `No expenses for ${monthLabel}`}
           </div>
         ) : (
           <div className="card p-0 overflow-hidden">
@@ -171,4 +222,24 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
       </div>
     </div>
   )
+}
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'date', label: 'Date' },
+  { key: 'cost', label: 'Amount' },
+  { key: 'name', label: 'Name' },
+]
+
+/** Case-insensitive match across every text field, plus the amount (so "1200" finds ₹1,200). */
+function matchesSearch(e: Expense, needle: string): boolean {
+  if (
+    e.name.toLowerCase().includes(needle) ||
+    e.expenseType.toLowerCase().includes(needle) ||
+    e.app.toLowerCase().includes(needle) ||
+    e.paymentMode.toLowerCase().includes(needle) ||
+    e.paidBy.toLowerCase().includes(needle) ||
+    e.tags.some(t => t.toLowerCase().includes(needle))
+  ) return true
+  const digits = needle.replace(/[₹,\s]/g, '')
+  return /^\d+(\.\d+)?$/.test(digits) && String(e.cost).includes(digits)
 }
