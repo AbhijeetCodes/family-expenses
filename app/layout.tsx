@@ -26,6 +26,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  // Draw under the iOS status bar (statusBarStyle is black-translucent);
+  // sticky headers and BottomNav pad themselves with the safe-area insets.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

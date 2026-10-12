@@ -4,6 +4,7 @@ import { getAllExpenses } from '@/lib/expenses'
 import { getSettings } from '@/lib/settings'
 import ExpenseForm from '@/components/ExpenseForm'
 import Link from 'next/link'
+import { ChevronLeftIcon } from '@/components/icons'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,12 +21,14 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
   if (!expense) notFound()
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-nav">
       <header className="page-header">
-        <Link href="/expenses" className="text-muted hover:text-ink text-lg w-8 h-8 flex items-center justify-center">←</Link>
-        <h1 className="font-bold text-lg text-ink">Edit Expense</h1>
+        <div className="page-header-row">
+          <Link href="/expenses" className="icon-btn" aria-label="Back to history"><ChevronLeftIcon className="w-5 h-5" /></Link>
+          <h1 className="text-[17px] font-semibold text-ink">Edit expense</h1>
+        </div>
       </header>
-      <div className="max-w-lg mx-auto px-4 py-4">
+      <div className="max-w-lg mx-auto px-4 py-5">
         <ExpenseForm settings={settings} existing={expense} />
       </div>
     </div>

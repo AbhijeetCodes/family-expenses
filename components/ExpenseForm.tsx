@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import type { SettingsData } from '@/lib/settings'
 import { createExpenseAction, updateExpenseAction, deleteExpenseAction } from '@/app/actions'
+import { CheckIcon } from './icons'
 
 type Props = {
   settings: SettingsData
@@ -55,9 +56,9 @@ export default function ExpenseForm({ settings, existing }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) return setError('Name is required')
-    if (!form.cost || form.cost <= 0) return setError('Enter a valid cost')
-    if (!form.paidBy) return setError('Select who paid')
+    if (!form.cost || form.cost <= 0) return setError('Enter an amount above ₹0')
+    if (!form.name.trim()) return setError('Add what it was for')
+    if (!form.paidBy) return setError('Choose who paid')
     setError('')
     const newLookups = computeNewLookups()
     // Await the action BEFORE navigating: yes, costs ~300ms of "Saving…"
@@ -76,7 +77,7 @@ export default function ExpenseForm({ settings, existing }: Props) {
         router.push('/')
       } catch (err) {
         console.error('Save failed', err)
-        setError('Save failed — please try again.')
+        setError('Couldn’t save. Check your connection and try again.')
       }
     })
   }
@@ -90,61 +91,74 @@ export default function ExpenseForm({ settings, existing }: Props) {
         router.push('/expenses')
       } catch (err) {
         console.error('Delete failed', err)
-        setError('Delete failed — please try again.')
+        setError('Couldn’t delete. Try again.')
         setShowDeleteConfirm(false)
       }
     })
   }
 
+  const today     = format(new Date(), 'yyyy-MM-dd')
+  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="bg-down/10 border border-down/20 rounded-xl px-4 py-2 text-sm text-down">
-          {error}
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      {/* Amount leads: it's the one thing every entry must get right. */}
+      <div className="card !p-0 overflow-hidden">
+        <label htmlFor="cost" className="label px-4 pt-4 !mb-0">Amount</label>
+        <div className="flex items-baseline gap-1 px-4 pb-3 pt-1">
+          <span className="text-3xl font-medium text-muted" aria-hidden>₹</span>
+          <input
+            id="cost"
+            type="number"
+            inputMode="decimal"
+            value={form.cost || ''}
+            onChange={e => set('cost', parseFloat(e.target.value) || 0)}
+            placeholder="0"
+            autoFocus={!existing}
+            className="w-full bg-transparent border-0 p-0 text-[44px] leading-tight font-semibold tracking-[-0.02em] text-ink tabular-nums
+                       placeholder:text-faint focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+          />
         </div>
-      )}
-
-      {/* Date */}
-      <div>
-        <label className="label">Date</label>
-        <input
-          type="date"
-          value={form.date}
-          onChange={e => set('date', e.target.value)}
-          className="input-field"
-          required
-        />
+        <div className="border-t border-line">
+          <label htmlFor="name" className="sr-only">What was it for</label>
+          <input
+            id="name"
+            type="text"
+            value={form.name}
+            onChange={e => set('name', e.target.value)}
+            placeholder="What was it for? Dinner, groceries, electricity bill…"
+            className="w-full h-12 bg-transparent border-0 px-4 text-[15px] text-ink placeholder:text-faint focus:ring-0"
+          />
+        </div>
       </div>
 
-      {/* Name */}
-      <div>
-        <label className="label">What was purchased</label>
-        <input
-          type="text"
-          value={form.name}
-          onChange={e => set('name', e.target.value)}
-          placeholder="e.g. Dinner, Groceries, Electricity bill"
-          className="input-field"
-        />
-      </div>
-
-      {/* Cost */}
-      <div>
-        <label className="label">Cost (₹)</label>
-        <input
-          type="number"
-          inputMode="decimal"
-          value={form.cost || ''}
-          onChange={e => set('cost', parseFloat(e.target.value) || 0)}
-          placeholder="0"
-          className="input-field text-lg font-semibold"
-        />
-      </div>
+      {/* Paid By — curated list, one tap. */}
+      <fieldset>
+        <legend className="label">Paid by</legend>
+        <div className="flex flex-wrap gap-2" role="radiogroup">
+          {settings.paidBy.map(p => {
+            const on = form.paidBy === p
+            return (
+              <button
+                key={p}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => set('paidBy', p)}
+                className={`pill !h-10 !px-4 !text-sm ${on ? 'pill-selected' : 'pill-default'}`}
+              >
+                {p}
+              </button>
+            )
+          })}
+        </div>
+      </fieldset>
 
       {/* Expense Type */}
       <div>
-        <label className="label">Expense Type</label>
+        <label htmlFor="type" className="label">Expense type</label>
         <input
+          id="type"
           type="text"
           list="dl-expense-types"
           value={form.expenseType}
@@ -158,113 +172,160 @@ export default function ExpenseForm({ settings, existing }: Props) {
         </datalist>
       </div>
 
-      {/* Paid By */}
+      {/* Date */}
       <div>
-        <label className="label">Paid By</label>
-        <select value={form.paidBy} onChange={e => set('paidBy', e.target.value)} className="input-field" required>
-          <option value="">Select person</option>
-          {settings.paidBy.map(p => <option key={p}>{p}</option>)}
-        </select>
-      </div>
-
-      {/* App */}
-      <div>
-        <label className="label">App / Platform (optional)</label>
-        <input
-          type="text"
-          list="dl-apps"
-          value={form.app}
-          onChange={e => set('app', e.target.value)}
-          className="input-field"
-          placeholder="Amazon, Zomato, BB…"
-          autoComplete="off"
-        />
-        <datalist id="dl-apps">
-          {settings.apps.map(a => <option key={a} value={a} />)}
-        </datalist>
-      </div>
-
-      {/* Payment Mode */}
-      <div>
-        <label className="label">Payment Mode (optional)</label>
-        <input
-          type="text"
-          list="dl-payment-modes"
-          value={form.paymentMode}
-          onChange={e => set('paymentMode', e.target.value)}
-          className="input-field"
-          placeholder="UPI, Card, Cash…"
-          autoComplete="off"
-        />
-        <datalist id="dl-payment-modes">
-          {settings.paymentModes.map(m => <option key={m} value={m} />)}
-        </datalist>
-      </div>
-
-      {/* One-time toggle */}
-      <div className="flex items-center justify-between bg-surface2/50 border border-divider rounded-xl px-4 py-3">
-        <div>
-          <p className="text-sm font-medium text-ink">One-time expense</p>
-          <p className="text-xs text-mutedDim">Not a recurring purchase</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => set('oneTime', !form.oneTime)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-            ${form.oneTime ? 'bg-accent' : 'bg-divider'}`}
-        >
-          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform
-            ${form.oneTime ? 'translate-x-6' : 'translate-x-1'}`} />
-        </button>
-      </div>
-
-      {/* Tags */}
-      {settings.tags.length > 0 && (
-        <div>
-          <label className="label">Tags (optional)</label>
-          <div className="flex flex-wrap gap-2 mt-1">
-            {settings.tags.map(tag => (
+        <div className="flex items-center justify-between mb-2">
+          <label htmlFor="date" className="label !mb-0">Date</label>
+          <div className="flex gap-1">
+            {[{ v: today, l: 'Today' }, { v: yesterday, l: 'Yesterday' }].map(d => (
               <button
+                key={d.l}
                 type="button"
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors
-                  ${form.tags.includes(tag)
-                    ? 'bg-accent text-base border-accent'
-                    : 'bg-surface2 text-muted border-divider hover:bg-surface2/80'}`}
+                onClick={() => set('date', d.v)}
+                aria-pressed={form.date === d.v}
+                className={`pill !h-7 ${form.date === d.v ? 'pill-selected' : 'pill-default'}`}
               >
-                {tag}
+                {d.l}
               </button>
             ))}
           </div>
         </div>
-      )}
+        <input
+          id="date"
+          type="date"
+          value={form.date}
+          onChange={e => set('date', e.target.value)}
+          className="input-field tabular-nums"
+          required
+        />
+      </div>
 
-      <button type="submit" disabled={pending} className="btn-primary mt-6">
-        {pending ? 'Saving…' : existing ? 'Update Expense' : 'Add Expense'}
+      {/* Optional details */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="app" className="label">App / platform <span className="normal-case tracking-normal text-mutedDim">· optional</span></label>
+          <input
+            id="app"
+            type="text"
+            list="dl-apps"
+            value={form.app}
+            onChange={e => set('app', e.target.value)}
+            className="input-field"
+            placeholder="Amazon, Zomato, BB…"
+            autoComplete="off"
+          />
+          <datalist id="dl-apps">
+            {settings.apps.map(a => <option key={a} value={a} />)}
+          </datalist>
+        </div>
+        <div>
+          <label htmlFor="mode" className="label">Payment mode <span className="normal-case tracking-normal text-mutedDim">· optional</span></label>
+          <input
+            id="mode"
+            type="text"
+            list="dl-payment-modes"
+            value={form.paymentMode}
+            onChange={e => set('paymentMode', e.target.value)}
+            className="input-field"
+            placeholder="UPI, Card, Cash…"
+            autoComplete="off"
+          />
+          <datalist id="dl-payment-modes">
+            {settings.paymentModes.map(m => <option key={m} value={m} />)}
+          </datalist>
+        </div>
+      </div>
+
+      {/* One-time toggle */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={form.oneTime}
+        aria-label="One-time expense"
+        onClick={() => set('oneTime', !form.oneTime)}
+        className="w-full flex items-center justify-between gap-4 text-left rounded-xl bg-surface ring-1 ring-inset ring-line px-4 py-3
+                   transition-colors hover:bg-surface2"
+      >
+        <span>
+          <span className="block text-sm font-medium text-ink">One-time expense</span>
+          <span className="block text-xs text-mutedDim mt-0.5">A big, rare buy — hidden from dashboard totals by default</span>
+        </span>
+        <span
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-150
+            ${form.oneTime ? 'bg-accent' : 'bg-surface3'}`}
+          aria-hidden
+        >
+          <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-crisp
+            ${form.oneTime ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+        </span>
       </button>
 
-      {existing && (
-        <>
-          {showDeleteConfirm ? (
-            <div className="space-y-2">
-              <p className="text-sm text-center text-muted">Delete this expense?</p>
-              <button type="button" onClick={handleDelete} disabled={pending}
-                className="w-full bg-down/20 text-down border border-down/30 font-semibold py-3 px-4 rounded-xl hover:bg-down/30 transition-colors disabled:opacity-50">
-                {pending ? 'Deleting…' : 'Yes, delete'}
-              </button>
-              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="btn-secondary">
-                Cancel
-              </button>
+      {/* Tags */}
+      {settings.tags.length > 0 && (
+        <fieldset>
+          <legend className="label">Tags <span className="normal-case tracking-normal text-mutedDim">· optional</span></legend>
+          <div className="flex flex-wrap gap-2">
+            {settings.tags.map(tag => {
+              const on = form.tags.includes(tag)
+              return (
+                <button
+                  type="button"
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  aria-pressed={on}
+                  className={`pill !h-9 !text-sm ${on ? 'pill-selected' : 'pill-default'}`}
+                >
+                  {on && <CheckIcon className="w-3.5 h-3.5 -ml-0.5" />}
+                  {tag}
+                </button>
+              )
+            })}
+          </div>
+        </fieldset>
+      )}
+
+      <div className="pt-2 space-y-3">
+        {/* Next to the button you just tapped — not scrolled away at the top. */}
+        {error && (
+          <p role="alert" className="rounded-xl bg-down/10 ring-1 ring-inset ring-down/25 px-4 py-2.5 text-sm text-down">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={pending} className="btn-primary">
+          {pending && <span className="w-4 h-4 rounded-full border-2 border-base/30 border-t-base animate-spin" aria-hidden />}
+          {pending ? 'Saving…' : existing ? 'Save changes' : 'Add expense'}
+        </button>
+
+        {existing && (
+          showDeleteConfirm ? (
+            <div className="rounded-xl ring-1 ring-inset ring-down/25 bg-down/5 p-3 space-y-3">
+              <p className="text-sm text-center text-muted">Delete “{existing.name}”? This removes the row from the sheet.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setShowDeleteConfirm(false)} className="btn-secondary !h-11">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={pending}
+                  className="h-11 rounded-xl bg-down text-ink font-semibold transition-[opacity,transform] duration-150 ease-crisp
+                             hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {pending ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setShowDeleteConfirm(true)}
-              className="w-full text-mutedDim hover:text-down text-sm font-medium py-2 transition-colors">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full h-11 rounded-xl text-sm font-medium text-mutedDim hover:text-down hover:bg-down/5 transition-colors"
+            >
               Delete expense
             </button>
-          )}
-        </>
-      )}
+          )
+        )}
+      </div>
     </form>
   )
 }

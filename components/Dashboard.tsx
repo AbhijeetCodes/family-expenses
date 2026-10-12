@@ -3,15 +3,16 @@
 import { useState, useMemo, useCallback, memo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { format, subMonths, addMonths } from 'date-fns'
+import { format, parseISO, subMonths, getDaysInMonth } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import OverviewCard from './cards/OverviewCard'
-import PaidByCard from './cards/PaidByCard'
 import CategoryCard from './cards/CategoryCard'
 import DailyTrendCard from './cards/DailyTrendCard'
-import FilterDropdown from './FilterDropdown'
+import FilterBar, { activeFilterCount } from './FilterBar'
+import MonthNav from './MonthNav'
+import SortToggle from './SortToggle'
 import TransactionList from './TransactionList'
-import { WalletIcon, PlusIcon } from './icons'
+import { WalletIcon, PlusIcon, XIcon, CogIcon } from './icons'
 import { unique } from '@/lib/utils'
 import type { SortKey, SortDir } from '@/lib/types'
 import { useMediaQuery } from '@/lib/useMediaQuery'
@@ -45,41 +46,26 @@ const SidebarHeader = memo(function SidebarHeader({
   onClearSelectedDate, onChangeSortKey, onToggleSortDir,
 }: SidebarHeaderProps) {
   return (
-    <div className="px-4 py-3 border-b border-divider/60 flex items-center justify-between gap-3 shrink-0">
-      <div className="flex items-center gap-2 min-w-0 flex-wrap">
-        <p className="text-sm font-semibold text-ink truncate">
-          {sortedCount}
-          {sortedCount !== totalCount && (
-            <span className="text-mutedDim font-normal"> of {totalCount}</span>
-          )}
-          <span className="text-muted font-normal"> transactions</span>
-        </p>
+    <div className="px-4 min-h-14 py-2.5 border-b border-line flex flex-wrap items-center justify-between gap-x-3 gap-y-2 shrink-0">
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-sm font-semibold text-ink">Transactions</h2>
+        <span className="text-xs text-mutedDim tabular-nums whitespace-nowrap">
+          {sortedCount}{sortedCount !== totalCount && ` of ${totalCount}`}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
         {selectedDate && (
           <button
+            type="button"
             onClick={onClearSelectedDate}
-            className="pill pill-active !text-xs !py-0.5 !px-2 flex items-center gap-1 shrink-0"
+            className="pill pill-active !h-7 !px-2.5"
+            aria-label={`Showing ${format(parseISO(selectedDate), 'd MMM')} only — clear`}
           >
-            Day {selectedDate.slice(8)} <span className="opacity-70">✕</span>
+            {format(parseISO(selectedDate), 'd MMM')}
+            <XIcon className="w-3 h-3 -mr-0.5" />
           </button>
         )}
-      </div>
-      <div className="flex items-center gap-1 text-xs shrink-0">
-        <select
-          value={sortKey}
-          onChange={e => onChangeSortKey(e.target.value as SortKey)}
-          className="bg-surface2 border border-divider rounded-md text-ink text-xs py-1 px-1.5 focus:ring-accent focus:border-accent"
-        >
-          <option value="date">Date</option>
-          <option value="cost">Amount</option>
-          <option value="name">Name</option>
-        </select>
-        <button
-          onClick={onToggleSortDir}
-          className="text-muted hover:text-ink w-6 h-6 rounded hover:bg-surface2 flex items-center justify-center"
-          title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
-        >
-          {sortDir === 'desc' ? '↓' : '↑'}
-        </button>
+        <SortToggle sortKey={sortKey} sortDir={sortDir} onChangeSortKey={onChangeSortKey} onToggleSortDir={onToggleSortDir} />
       </div>
     </div>
   )
@@ -96,12 +82,11 @@ export default function Dashboard({
   // All filter + sort + selectedDate state is URL-backed so it persists across
   // /expenses ↔ / navigation and produces shareable links. Dashboard defaults
   // to excludeOneTime=true (per CLAUDE.md — keeps rare big buys out of totals).
-  const f = useFilterParams({ excludeOneTime: true, sortKey: 'date', sortDir: 'desc' })
+  const f = useFilterParams({ excludeOneTime: DEFAULT_EXCLUDE_ONE_TIME, sortKey: 'date', sortDir: 'desc' })
   const {
     excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags,
     excludeOneTime, sortKey, sortDir, selectedDate,
-    setExcludedTypes, setExcludedApps, setExcludedModes, setExcludedPaidBy, setExcludedTags,
-    setExcludeOneTime, setSortKey, setSortDir, toggleSortDir, setSelectedDate, clearAll,
+    setSortKey, toggleSortDir, setSelectedDate,
   } = f
 
   const [showComparison, setShowComparison] = useState(false)
@@ -112,8 +97,11 @@ export default function Dashboard({
   const allPaidBy  = useMemo(() => unique(thisMonthExpenses.map(e => e.paidBy)),      [thisMonthExpenses])
   const allTags    = useMemo(() => unique(thisMonthExpenses.flatMap(e => e.tags)),    [thisMonthExpenses])
 
-  const totalActiveFilters =
-    excludedTypes.size + excludedApps.size + excludedModes.size + excludedPaidBy.size + excludedTags.size + (excludeOneTime ? 1 : 0)
+  const filterOptions = useMemo(
+    () => ({ types: allTypes, paidBy: allPaidBy, apps: allApps, modes: allModes, tags: allTags }),
+    [allTypes, allPaidBy, allApps, allModes, allTags]
+  )
+  const totalActiveFilters = activeFilterCount(f, DEFAULT_EXCLUDE_ONE_TIME)
 
   const applyFilters = useCallback((expenses: Expense[]) =>
     expenses.filter(e => {
@@ -149,17 +137,27 @@ export default function Dashboard({
     return { total, cats, days, people }
   }, [filtered])
 
-  // Parallel one-pass over prev-month for total + category comparison.
+  const monthDate      = new Date(`${monthStr}-01`)
+  const today          = new Date()
+  const isCurrentMonth = monthStr === format(today, 'yyyy-MM')
+  const daysElapsed    = today.getDate()
+  const daysInMonth    = getDaysInMonth(monthDate)
+
+  // Parallel one-pass over prev-month for total + category comparison, plus
+  // the total up to today's day-of-month (fair comparison for a month in
+  // progress).
   const prevAgg = useMemo(() => {
     const cats: Record<string, number> = {}
     let total = 0
+    let toDate = 0
     for (const e of filteredPrev) {
       total += e.cost
+      if (Number(e.date.slice(8, 10)) <= daysElapsed) toDate += e.cost
       const cat = e.expenseType || 'Other'
       cats[cat] = (cats[cat] ?? 0) + e.cost
     }
-    return { total, cats }
-  }, [filteredPrev])
+    return { total, toDate, cats }
+  }, [filteredPrev, daysElapsed])
 
   const total     = currentAgg.total
   const prevTotal = prevAgg.total
@@ -171,12 +169,15 @@ export default function Dashboard({
       .sort((a, b) => b.current - a.current)
   }, [currentAgg, prevAgg])
 
+  // Every day of the month, zero-filled — gaps are information too.
   const trendData = useMemo(
-    () => Object.entries(currentAgg.days)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([day, amount]) => ({ day, amount })),
-    [currentAgg]
+    () => Array.from({ length: daysInMonth }, (_, i) => {
+      const day = `${monthStr}-${String(i + 1).padStart(2, '0')}`
+      return { day, amount: currentAgg.days[day] ?? 0 }
+    }),
+    [currentAgg, monthStr, daysInMonth]
   )
+  const dailyAverage = total / (isCurrentMonth ? daysElapsed : daysInMonth)
 
   const paidByData = useMemo(
     () => Object.entries(currentAgg.people)
@@ -200,15 +201,10 @@ export default function Dashboard({
     })
   }, [sidebarFiltered, sortKey, sortDir])
 
-  const monthDate      = new Date(`${monthStr}-01`)
-  const prevMonthStr   = format(subMonths(monthDate, 1), 'yyyy-MM')
-  const nextMonthStr   = format(addMonths(monthDate, 1), 'yyyy-MM')
-  const today          = new Date()
-  const isCurrentMonth = monthStr === format(today, 'yyyy-MM')
+  const monthName     = format(monthDate, 'MMMM')
+  const prevMonthName = format(subMonths(monthDate, 1), 'MMMM')
 
   // Linear forecast: only meaningful for the current month
-  const daysElapsed = today.getDate()
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
   const forecast = useMemo(
     () => (isCurrentMonth && daysElapsed > 0 ? (total / daysElapsed) * daysInMonth : null),
     [isCurrentMonth, total, daysElapsed, daysInMonth]
@@ -227,70 +223,77 @@ export default function Dashboard({
   }, [router, monthStr, isDesktop, selectedDate, setSelectedDate])
 
   return (
-    <div className="min-h-screen bg-base pb-16 md:pb-0">
-      {/* Header */}
-      <header className="bg-surface border-b border-divider sticky top-0 z-30">
+    <div className="min-h-screen bg-base pb-nav">
+      <header className="bg-base/90 backdrop-blur-md border-b border-line sticky top-0 z-30 pt-safe">
         <div className="relative max-w-[1400px] mx-auto px-4 h-14 flex items-center">
-          <span className="font-bold text-ink flex items-center gap-2 z-10">
+          <span className="hidden sm:flex items-center gap-2 text-[15px] font-semibold text-ink">
             <WalletIcon className="w-5 h-5 text-accent" />
             Expenses
           </span>
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5">
-            <Link href={`/?month=${prevMonthStr}`} prefetch className="text-muted hover:text-ink w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface2 transition-colors text-lg">‹</Link>
-            <span className="text-ink font-medium text-sm px-2 min-w-[110px] text-center">{monthLabel}</span>
-            <Link href={`/?month=${nextMonthStr}`} prefetch={!isCurrentMonth} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${isCurrentMonth ? 'text-mutedDim/40 pointer-events-none' : 'text-muted hover:text-ink hover:bg-surface2'}`}>›</Link>
+          <div className="absolute left-1/2 -translate-x-1/2">
+            <MonthNav basePath="/" monthStr={monthStr} monthLabel={monthLabel} />
           </div>
-          <div className="ml-auto hidden md:flex items-center gap-3 z-10">
-            <Link href="/add" className="flex items-center gap-1.5 bg-accent hover:bg-accent-2 text-base font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors">
-              <PlusIcon className="w-4 h-4" /> Add Expense
+          {/* Desktop has no BottomNav — these are the way to History / Settings. */}
+          <div className="ml-auto hidden lg:flex items-center gap-1">
+            <Link href={`/expenses?month=${monthStr}`} className="h-9 px-3 rounded-xl inline-flex items-center text-sm font-medium text-muted hover:text-ink hover:bg-surface2 transition-colors">
+              History
             </Link>
-            <span className="text-sm text-muted">{userName}</span>
+            <Link href="/settings" className="icon-btn" aria-label="Settings" title={userName ? `Settings · signed in as ${userName}` : 'Settings'}>
+              <CogIcon className="w-5 h-5" />
+            </Link>
+            <Link
+              href="/add"
+              className="ml-3 inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-accent text-base text-sm font-semibold
+                         transition-[background-color,transform] duration-150 ease-crisp hover:bg-accent-2 active:scale-[0.97]"
+            >
+              <PlusIcon className="w-4 h-4" /> Add expense
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* Filter bar */}
-      <div className="bg-surface/60 border-b border-divider/50">
-        <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <FilterDropdown label="Type"    options={allTypes}  excluded={excludedTypes}  onChange={setExcludedTypes} />
-          <FilterDropdown label="Paid By" options={allPaidBy} excluded={excludedPaidBy} onChange={setExcludedPaidBy} />
-          <FilterDropdown label="App"     options={allApps}   excluded={excludedApps}   onChange={setExcludedApps} />
-          <FilterDropdown label="Mode"    options={allModes}  excluded={excludedModes}  onChange={setExcludedModes} />
-          <FilterDropdown label="Tags"    options={allTags}   excluded={excludedTags}   onChange={setExcludedTags} />
-          <button
-            onClick={() => setExcludeOneTime(!excludeOneTime)}
-            className={`pill ${excludeOneTime ? 'pill-active !bg-down/15 !text-down !border-down/30' : 'pill-default'}`}
-          >
-            {excludeOneTime ? '✕ one-time excluded' : 'Exclude one-time'}
-          </button>
-          {totalActiveFilters > 0 && (
-            <button onClick={clearAll} className="text-xs text-muted hover:text-ink transition-colors underline underline-offset-2 ml-auto">
-              Clear all ({totalActiveFilters})
-            </button>
-          )}
-        </div>
+      <div className="border-b border-line">
+        <FilterBar
+          f={f}
+          options={filterOptions}
+          defaultExcludeOneTime={DEFAULT_EXCLUDE_ONE_TIME}
+          className="max-w-[1400px] mx-auto px-4 py-2.5"
+        />
       </div>
 
-      {/* Main layout: analytics-only on mobile, analytics + transactions sidebar on lg+ */}
-      <main className="max-w-[1400px] mx-auto px-4 py-4">
-        <div className="grid gap-4 lg:grid-cols-[1fr_400px] xl:grid-cols-[1fr_440px] lg:items-start">
-          {/* Left: analytics 2x2 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <OverviewCard
-              total={total}
-              prevTotal={prevTotal}
-              monthLabel={monthLabel}
-              forecast={forecast}
-              daysElapsed={daysElapsed}
-              daysInMonth={daysInMonth}
+      {/* Analytics on the left; on lg+ the transactions sidebar on the right. */}
+      <main className="max-w-[1400px] mx-auto px-4 py-4 lg:py-6">
+        <div className="grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px] lg:items-start">
+          <div className="grid gap-4 md:grid-cols-2 min-w-0">
+            <div className="md:col-span-2">
+              <OverviewCard
+                total={total}
+                prevTotal={prevTotal}
+                compareTotal={isCurrentMonth ? prevAgg.toDate : prevTotal}
+                monthName={monthName}
+                prevMonthName={prevMonthName}
+                forecast={forecast}
+                daysElapsed={daysElapsed}
+                daysInMonth={daysInMonth}
+                paidBy={paidByData}
+              />
+            </div>
+            <CategoryCard
+              data={categoryData}
+              prevMonthName={prevMonthName}
+              showComparison={showComparison}
+              onToggleComparison={toggleComparison}
             />
-            <PaidByCard data={paidByData} />
-            <CategoryCard data={categoryData} showComparison={showComparison} onToggleComparison={toggleComparison} />
-            <DailyTrendCard data={trendData} onSelectDay={handleSelectDay} />
+            <DailyTrendCard
+              data={trendData}
+              average={dailyAverage}
+              selectedDate={isDesktop ? selectedDate : null}
+              onSelectDay={handleSelectDay}
+            />
           </div>
 
           {/* Right (desktop only): transactions sidebar */}
-          <aside className="hidden lg:flex card p-0 overflow-hidden flex-col lg:sticky lg:top-[7.5rem] lg:max-h-[calc(100vh-8.5rem)]">
+          <aside className="hidden lg:flex card p-0 md:p-0 overflow-hidden flex-col lg:sticky lg:top-20 lg:max-h-[calc(100vh-6.5rem)]">
             <SidebarHeader
               sortedCount={sortedExpenses.length}
               totalCount={thisMonthExpenses.length}
@@ -302,29 +305,27 @@ export default function Dashboard({
               onToggleSortDir={toggleSortDir}
             />
 
-            {/* List */}
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto overscroll-contain flex-1 pb-2">
               {sortedExpenses.length === 0 ? (
-                <p className="text-center py-12 text-mutedDim text-sm">
-                  {totalActiveFilters > 0 ? 'No transactions match the current filters.' : 'No expenses this month'}
-                </p>
+                <div className="px-6 py-16 text-center">
+                  <p className="text-sm text-muted">
+                    {totalActiveFilters > 0 || selectedDate ? 'Nothing matches these filters.' : `No expenses in ${monthName} yet.`}
+                  </p>
+                  {totalActiveFilters > 0 && (
+                    <button type="button" onClick={f.clearAll} className="mt-2 text-sm font-medium text-accent hover:text-accent-2">
+                      Clear filters
+                    </button>
+                  )}
+                </div>
               ) : (
-                <TransactionList expenses={sortedExpenses} density="compact" dividerTone="soft" />
+                <TransactionList expenses={sortedExpenses} density="compact" groupByDay={sortKey === 'date'} />
               )}
             </div>
           </aside>
         </div>
       </main>
-
-      {/* Mobile FAB */}
-      <Link
-        href="/add"
-        className="fixed bottom-20 right-4 lg:hidden w-14 h-14 bg-accent hover:bg-accent-2 text-base rounded-full
-                   flex items-center justify-center shadow-lg z-30"
-        aria-label="Add expense"
-      >
-        <PlusIcon className="w-6 h-6" />
-      </Link>
     </div>
   )
 }
+
+const DEFAULT_EXCLUDE_ONE_TIME = true

@@ -1,83 +1,137 @@
 'use client'
 
-import { memo } from 'react'
-import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts'
+import { memo, useMemo, useState } from 'react'
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Bar, BarChart, Cell, ReferenceLine } from 'recharts'
+import { format, parseISO } from 'date-fns'
 import { formatINR } from '@/lib/format'
 
-const tooltipStyle = { backgroundColor: '#1A1D2D', border: '1px solid #262A3D', borderRadius: 8 }
+// Recharts takes literal colors — these mirror tailwind.config.ts tokens.
+const C = {
+  accent: '#00D689',
+  surface2: '#252836',
+  line: 'rgba(255,255,255,0.06)',
+  ink: '#FFFFFF',
+  muted: '#94A3B8',
+  mutedDim: '#64748B',
+}
 
 type TooltipProps = {
   active?: boolean
   payload?: { payload: { day: string }; value: number }[]
   label?: string
-  onSelectDay?: (day: string) => void
+  clickable?: boolean
 }
 
-function CustomTooltip({ active, payload, label, onSelectDay }: TooltipProps) {
-  if (!active || !payload?.length) return null
+function CustomTooltip({ active, payload, label, clickable }: TooltipProps) {
+  if (!active || !payload?.length || !label) return null
   const amount = payload[0].value
-  const dayNum = label?.replace(/^\d{4}-\d{2}-/, 'Day ') ?? label
   return (
-    <div style={{ ...tooltipStyle, padding: '10px 14px' }}>
-      <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 4 }}>{dayNum}</p>
-      <p style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 600 }}>
-        Spent : ₹{formatINR(amount)}
+    <div style={{ background: C.surface2, borderRadius: 10, padding: '8px 12px', boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 12px 32px -8px rgba(0,0,0,0.6)' }}>
+      <p style={{ color: C.muted, fontSize: 12 }}>{format(parseISO(label), 'EEE, d MMM')}</p>
+      <p style={{ color: C.ink, fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
+        ₹{formatINR(amount)}
       </p>
-      {onSelectDay && (
-        <p style={{ color: '#00D689', fontSize: 11, marginTop: 6 }}>Click to filter →</p>
+      {clickable && amount > 0 && (
+        <p style={{ color: C.mutedDim, fontSize: 11, marginTop: 4 }}>Click to see that day</p>
       )}
     </div>
   )
 }
 
-type Props = { data: { day: string; amount: number }[]; onSelectDay?: (day: string) => void }
+type Props = {
+  /** One entry per day of the month, zero-filled. */
+  data: { day: string; amount: number }[]
+  average: number
+  selectedDate?: string | null
+  onSelectDay?: (day: string) => void
+}
 
-function DailyTrendInner({ data, onSelectDay }: Props) {
-  if (!data.length) return <p className="text-center text-sm text-mutedDim py-8">No data</p>
+/**
+ * One huge day (rent on the 1st) flattens every other bar into the axis. When
+ * the biggest day is > 2.5× the next, cap the axis just above the runner-up
+ * and label the clipped bar with its real value instead.
+ */
+function outlierCap(data: { amount: number }[]): number | null {
+  const vals = data.map(d => d.amount).filter(v => v > 0).sort((a, b) => b - a)
+  if (vals.length < 4) return null
+  return vals[0] > vals[1] * 2.5 ? Math.ceil(vals[1] * 1.3) : null
+}
+
+const PLOT_TOP = 14
+
+type ClipLabelProps = { x?: number; y?: number; width?: number; value?: number }
+
+function DailyTrendInner({ data, average, selectedDate, onSelectDay }: Props) {
+  const [hover, setHover] = useState<string | null>(null)
+  const cap = useMemo(() => outlierCap(data), [data])
+
+  const clipLabel = ({ x = 0, width = 0, value = 0 }: ClipLabelProps) => {
+    if (cap === null || value <= cap) return <g />
+    const text = value >= 1000 ? `₹${Math.round(value / 1000)}k` : `₹${value}`
+    return (
+      <g>
+        {/* break marks across the bar top: "this keeps going" */}
+        <path d={`M${x - 2} ${PLOT_TOP + 7}l${width + 4} -4M${x - 2} ${PLOT_TOP + 11}l${width + 4} -4`} stroke="#1A1D2D" strokeWidth={2} />
+        <text x={x + width + 4} y={PLOT_TOP + 8} fill={C.muted} fontSize={11} fontWeight={600}>{text}</text>
+      </g>
+    )
+  }
+  if (!data.some(d => d.amount > 0)) {
+    return <p className="text-sm text-mutedDim py-6">No spending matches these filters.</p>
+  }
   return (
-    <ResponsiveContainer width="100%" height={190}>
-      <AreaChart
+    <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+      <BarChart
         data={data}
-        margin={{ left: 0, right: 8, top: 4, bottom: 0 }}
-        onClick={onSelectDay ? (chart) => { if (chart?.activeLabel) onSelectDay(chart.activeLabel) } : undefined}
+        margin={{ left: 0, right: 0, top: PLOT_TOP, bottom: 0 }}
+        barCategoryGap="22%"
+        // Click is wired to the chart, not the tooltip — Recharts moves the
+        // tooltip away from the cursor, so it can't be clicked in practice.
+        onClick={onSelectDay ? (chart) => {
+          const day = chart?.activeLabel
+          if (day && data.find(d => d.day === day)?.amount) onSelectDay(day)
+        } : undefined}
+        onMouseMove={(s) => setHover(s?.activeLabel ?? null)}
+        onMouseLeave={() => setHover(null)}
         style={onSelectDay ? { cursor: 'pointer' } : undefined}
       >
-        <defs>
-          <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stopColor="#00D689" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="#00D689" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1A1D2D" />
+        <CartesianGrid vertical={false} stroke={C.line} />
         <XAxis
           dataKey="day"
-          tick={{ fontSize: 11, fill: '#64748B' }}
-          tickFormatter={d => d.replace(/^\d{4}-\d{2}-/, '')}
+          tick={{ fontSize: 11, fill: C.mutedDim }}
+          tickFormatter={d => String(Number(d.slice(8)))}
+          interval="preserveStartEnd"
+          minTickGap={12}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: '#64748B' }}
-          tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`}
-          width={42}
+          tick={{ fontSize: 11, fill: C.mutedDim }}
+          tickFormatter={v => (v >= 1000 ? `₹${Math.round(v / 1000)}k` : `₹${v}`)}
+          width={44}
           axisLine={false}
           tickLine={false}
+          domain={cap !== null ? [0, cap] : [0, 'auto']}
+          allowDataOverflow={cap !== null}
         />
-        <Tooltip
-          content={<CustomTooltip onSelectDay={onSelectDay} />}
-          cursor={{ stroke: '#262A3D' }}
-        />
-        <Area
-          type="monotone"
-          dataKey="amount"
-          stroke="#00D689"
-          strokeWidth={2}
-          fill="url(#trendGradient)"
-          dot={false}
-          activeDot={{ r: 4, fill: '#00D689' }}
-          isAnimationActive={false}
-        />
-      </AreaChart>
+        <Tooltip content={<CustomTooltip clickable={!!onSelectDay} />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        {average > 0 && (
+          <ReferenceLine y={average} stroke={C.muted} strokeOpacity={0.5} strokeDasharray="3 4" ifOverflow="hidden" />
+        )}
+        <Bar dataKey="amount" radius={[3, 3, 0, 0]} isAnimationActive={false} label={clipLabel}>
+          {data.map(d => {
+            const focused = d.day === selectedDate || d.day === hover
+            const dimmed = !!selectedDate && d.day !== selectedDate
+            return (
+              <Cell
+                key={d.day}
+                fill={C.accent}
+                fillOpacity={focused ? 1 : dimmed ? 0.25 : 0.6}
+              />
+            )
+          })}
+        </Bar>
+      </BarChart>
     </ResponsiveContainer>
   )
 }
