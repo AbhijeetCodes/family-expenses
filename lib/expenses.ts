@@ -255,7 +255,40 @@ export async function addExpense(e: Omit<Expense, 'rowIndex'>): Promise<void> {
   patchCache(data => [...data.filter(x => x.rowIndex !== rowIndex), toRow(e, rowIndex)])
 }
 
-export async function updateExpense(rowIndex: number, e: Omit<Expense, 'rowIndex'>): Promise<void> {
+/** Thrown when a row no longer holds the expense the user opened. */
+export class RowConflictError extends Error {}
+
+/** Enough fields to tell that a row now holds a different expense. */
+function sameExpense(a: Omit<Expense, 'rowIndex'>, b: Omit<Expense, 'rowIndex'>): boolean {
+  return a.date === b.date &&
+    a.name.trim() === b.name.trim() &&
+    a.paidBy === b.paidBy &&
+    Math.round(a.cost) === Math.round(b.cost)
+}
+
+/**
+ * rowIndex is positional: a row inserted or deleted above it (in the sheet,
+ * or by another family member) shifts every expense below it. Re-read the
+ * row right before writing so an edit/delete can't land on the wrong one.
+ */
+async function assertRowHolds(rowIndex: number, expected: Omit<Expense, 'rowIndex'>): Promise<void> {
+  const res = await getSheetsClient().spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${EXPENSES_TAB}!A${rowIndex}:J${rowIndex}`,
+  })
+  const row = res.data.values?.[0] as string[] | undefined
+  if (!row || !sameExpense(rowToExpense(row, rowIndex), expected)) {
+    invalidateExpensesCache()
+    throw new RowConflictError(`Row ${rowIndex} no longer holds the expected expense`)
+  }
+}
+
+export async function updateExpense(
+  rowIndex: number,
+  e: Omit<Expense, 'rowIndex'>,
+  expected: Omit<Expense, 'rowIndex'>,
+): Promise<void> {
+  await assertRowHolds(rowIndex, expected)
   const sheets = getSheetsClient()
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
@@ -266,7 +299,8 @@ export async function updateExpense(rowIndex: number, e: Omit<Expense, 'rowIndex
   patchCache(data => data.map(x => (x.rowIndex === rowIndex ? toRow(e, rowIndex) : x)))
 }
 
-export async function deleteExpense(rowIndex: number): Promise<void> {
+export async function deleteExpense(rowIndex: number, expected: Omit<Expense, 'rowIndex'>): Promise<void> {
+  await assertRowHolds(rowIndex, expected)
   const sheets = getSheetsClient()
   const sheetId = await getTabSheetId(EXPENSES_TAB)
   await sheets.spreadsheets.batchUpdate({

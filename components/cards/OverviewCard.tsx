@@ -2,6 +2,7 @@
 
 import { memo } from 'react'
 import { formatINR } from '@/lib/format'
+import type { Forecast } from '@/lib/forecast'
 import PaidBySplit from './PaidBySplit'
 
 type Props = {
@@ -16,7 +17,7 @@ type Props = {
   compareTotal: number
   monthName: string
   prevMonthName: string
-  forecast: number | null   // null when not applicable (past/future month)
+  forecast: Forecast | null   // null when not applicable (past/future month)
   daysElapsed: number
   daysInMonth: number
   paidBy: { name: string; value: number }[]
@@ -32,7 +33,7 @@ function OverviewCardInner({
 
   // Pace bar (current month only): spent so far → forecast, against a tick
   // at last month's full total.
-  const scale = Math.max(total, forecast ?? 0, prevTotal)
+  const scale = Math.max(total, forecast?.total ?? 0, prevTotal)
   const pct = (n: number) => (scale > 0 ? Math.min(100, (n / scale) * 100) : 0)
 
   return (
@@ -64,14 +65,20 @@ function OverviewCardInner({
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="text-muted">
                 On pace for{' '}
-                <span className="text-ink font-semibold tabular-nums">₹{formatINR(Math.round(forecast))}</span>
+                <span className="text-ink font-semibold tabular-nums">₹{formatINR(Math.round(forecast.total))}</span>
               </span>
               <span className="text-xs text-mutedDim tabular-nums shrink-0">Day {daysElapsed} of {daysInMonth}</span>
             </div>
+            {forecast.billsDue > 0 && (
+              <p className="mt-1 text-xs text-mutedDim">
+                incl. <span className="tabular-nums">₹{formatINR(Math.round(forecast.billsDue))}</span> usually still due
+                {' '}({forecast.billNames.slice(0, 2).join(', ')}{forecast.billNames.length > 2 && ' …'})
+              </p>
+            )}
             <div className="relative mt-3 h-2 rounded-full bg-well ring-1 ring-inset ring-line">
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-accent/25"
-                style={{ width: `${pct(forecast)}%` }}
+                style={{ width: `${pct(forecast.total)}%` }}
               />
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-accent transition-[width] duration-300 ease-crisp"

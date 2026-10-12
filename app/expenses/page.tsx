@@ -4,7 +4,7 @@ import { getExpensesWithVersion } from '@/lib/expenses'
 import LiveSync from '@/components/LiveSync'
 import { format } from 'date-fns'
 import HistoryView from '@/components/HistoryView'
-import { filterByMonth } from '@/lib/date'
+import { filterByMonth, monthStart, resolveMonth } from '@/lib/date'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +17,8 @@ export default async function ExpensesPage({
   if (!session) redirect('/login')
 
   const { month } = await searchParams
-  const monthStr = month ?? format(new Date(), 'yyyy-MM')
-  const monthDate = new Date(`${monthStr}-01`)
+  const monthStr = resolveMonth(month)
+  const monthDate = monthStart(monthStr)
 
   const { data: all, version } = await getExpensesWithVersion()
   const monthExpenses = filterByMonth(all, monthStr)

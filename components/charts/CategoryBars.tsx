@@ -17,7 +17,9 @@ function bucketSmall(rows: Row[]): Row[] {
   let otherCurr = 0
   let otherPrev = 0
   for (const r of rows) {
-    if (r.current / total < OTHER_THRESHOLD) {
+    // A real "Other" category (or blank types, which the dashboard labels
+    // "Other") joins the bucket — two "Other" rows would share a React key.
+    if (r.name === 'Other' || r.current / total < OTHER_THRESHOLD) {
       otherCurr += r.current
       otherPrev += r.prev
     } else {

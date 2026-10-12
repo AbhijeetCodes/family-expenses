@@ -16,11 +16,15 @@ import { WalletIcon, PlusIcon, XIcon, CogIcon } from './icons'
 import { unique } from '@/lib/utils'
 import type { SortKey, SortDir } from '@/lib/types'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { useFilterParams } from '@/lib/useFilterParams'
+import { useFilterParams, useCarriedHref } from '@/lib/useFilterParams'
+import { currentMonthStr, monthStart, todayISO } from '@/lib/date'
+import { forecastMonth } from '@/lib/forecast'
 
 type Props = {
   thisMonthExpenses: Expense[]
   prevMonthExpenses: Expense[]
+  /** Months -2 and -3 (current month only) — extra history for the forecast. */
+  olderMonthExpenses: Expense[][]
   monthLabel: string
   monthStr: string
   userName: string
@@ -74,6 +78,7 @@ const SidebarHeader = memo(function SidebarHeader({
 export default function Dashboard({
   thisMonthExpenses,
   prevMonthExpenses,
+  olderMonthExpenses,
   monthLabel,
   monthStr,
   userName,
@@ -137,10 +142,11 @@ export default function Dashboard({
     return { total, cats, days, people }
   }, [filtered])
 
-  const monthDate      = new Date(`${monthStr}-01`)
-  const today          = new Date()
-  const isCurrentMonth = monthStr === format(today, 'yyyy-MM')
-  const daysElapsed    = today.getDate()
+  // Same clock (APP_TIME_ZONE) on server and client — otherwise "Day N" and
+  // the forecast hydrate differently for 5½ hours every night.
+  const monthDate      = monthStart(monthStr)
+  const isCurrentMonth = monthStr === currentMonthStr()
+  const daysElapsed    = Number(todayISO().slice(8, 10))
   const daysInMonth    = getDaysInMonth(monthDate)
 
   // Parallel one-pass over prev-month for total + category comparison, plus
@@ -204,23 +210,27 @@ export default function Dashboard({
   const monthName     = format(monthDate, 'MMMM')
   const prevMonthName = format(subMonths(monthDate, 1), 'MMMM')
 
-  // Linear forecast: only meaningful for the current month
+  // Month-end forecast (current month only) — see lib/forecast.ts. History goes
+  // through the same filters, so hiding a category hides it from the forecast too.
   const forecast = useMemo(
-    () => (isCurrentMonth && daysElapsed > 0 ? (total / daysElapsed) * daysInMonth : null),
-    [isCurrentMonth, total, daysElapsed, daysInMonth]
+    () => isCurrentMonth && daysElapsed > 0
+      ? forecastMonth(filtered, [filteredPrev, ...olderMonthExpenses.map(applyFilters)], daysElapsed, daysInMonth)
+      : null,
+    [isCurrentMonth, filtered, filteredPrev, olderMonthExpenses, applyFilters, daysElapsed, daysInMonth]
   )
 
   const toggleComparison    = useCallback(() => setShowComparison(s => !s), [])
   const clearSelectedDate   = useCallback(() => setSelectedDate(null), [setSelectedDate])
 
+  const carry = useCarriedHref()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const handleSelectDay = useCallback((day: string) => {
     if (isDesktop) {
       setSelectedDate(selectedDate === day ? null : day)
     } else {
-      router.push(`/expenses?month=${monthStr}&date=${day}`)
+      router.push(carry('/expenses', { month: monthStr, date: day }))
     }
-  }, [router, monthStr, isDesktop, selectedDate, setSelectedDate])
+  }, [router, carry, monthStr, isDesktop, selectedDate, setSelectedDate])
 
   return (
     <div className="min-h-screen bg-base pb-nav">
@@ -235,7 +245,7 @@ export default function Dashboard({
           </div>
           {/* Desktop has no BottomNav — these are the way to History / Settings. */}
           <div className="ml-auto hidden lg:flex items-center gap-1">
-            <Link href={`/expenses?month=${monthStr}`} className="h-9 px-3 rounded-xl inline-flex items-center text-sm font-medium text-muted hover:text-ink hover:bg-surface2 transition-colors">
+            <Link href={carry('/expenses', { month: monthStr })} className="h-9 px-3 rounded-xl inline-flex items-center text-sm font-medium text-muted hover:text-ink hover:bg-surface2 transition-colors">
               History
             </Link>
             <Link href="/settings" className="icon-btn" aria-label="Settings" title={userName ? `Settings · signed in as ${userName}` : 'Settings'}>

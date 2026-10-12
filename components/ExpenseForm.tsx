@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { format, subDays } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import type { SettingsData } from '@/lib/settings'
 import { createExpenseAction, updateExpenseAction, deleteExpenseAction } from '@/app/actions'
 import { CheckIcon } from './icons'
+import { todayISO, yesterdayISO } from '@/lib/date'
 
 type Props = {
   settings: SettingsData
@@ -14,7 +14,7 @@ type Props = {
 }
 
 const emptyForm = (): Omit<Expense, 'rowIndex'> => ({
-  date: format(new Date(), 'yyyy-MM-dd'),
+  date: todayISO(),
   expenseType: '',
   app: '',
   paymentMode: '',
@@ -25,10 +25,23 @@ const emptyForm = (): Omit<Expense, 'rowIndex'> => ({
   tags: [],
 })
 
+/** Settings list plus anything the expense already has (e.g. typed in the sheet), so it stays visible and removable. */
+function withExtras(list: string[], extras: string[]): string[] {
+  const missing = extras.filter(x => x && !list.includes(x))
+  return missing.length ? [...list, ...missing] : list
+}
+
 export default function ExpenseForm({ settings, existing }: Props) {
-  const [form, setForm] = useState<Omit<Expense, 'rowIndex'>>(
-    existing ? { ...existing } : emptyForm()
-  )
+  const [form, setForm] = useState<Omit<Expense, 'rowIndex'>>(() => {
+    if (!existing) return emptyForm()
+    const { rowIndex: _, ...rest } = existing
+    return rest
+  })
+  // The amount field keeps its own text: deriving it from the number turned
+  // "0" / "0." back into "" and made amounts below ₹1 impossible to type.
+  const [costText, setCostText] = useState(existing?.cost ? String(existing.cost) : '')
+  const paidByOptions = withExtras(settings.paidBy, existing ? [existing.paidBy] : [])
+  const tagOptions = withExtras(settings.tags, existing?.tags ?? [])
   const [error, setError] = useState('')
   const [pending, startTransition] = useTransition()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -67,7 +80,9 @@ export default function ExpenseForm({ settings, existing }: Props) {
     startTransition(async () => {
       try {
         if (existing) {
-          await updateExpenseAction(existing.rowIndex, form, newLookups)
+          const { rowIndex, ...original } = existing
+          const res = await updateExpenseAction(rowIndex, original, form, newLookups)
+          if (res.error) return setError(res.error)
         } else {
           await createExpenseAction(form, newLookups)
         }
@@ -86,7 +101,13 @@ export default function ExpenseForm({ settings, existing }: Props) {
     if (!existing) return
     startTransition(async () => {
       try {
-        await deleteExpenseAction(existing.rowIndex)
+        const { rowIndex, ...original } = existing
+        const res = await deleteExpenseAction(rowIndex, original)
+        if (res.error) {
+          setError(res.error)
+          setShowDeleteConfirm(false)
+          return
+        }
         router.refresh()
         router.push('/expenses')
       } catch (err) {
@@ -97,8 +118,8 @@ export default function ExpenseForm({ settings, existing }: Props) {
     })
   }
 
-  const today     = format(new Date(), 'yyyy-MM-dd')
-  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+  const today     = todayISO()
+  const yesterday = yesterdayISO()
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
@@ -111,8 +132,12 @@ export default function ExpenseForm({ settings, existing }: Props) {
             id="cost"
             type="number"
             inputMode="decimal"
-            value={form.cost || ''}
-            onChange={e => set('cost', parseFloat(e.target.value) || 0)}
+            value={costText}
+            onChange={e => {
+              setCostText(e.target.value)
+              const n = parseFloat(e.target.value)
+              set('cost', Number.isFinite(n) ? n : 0)
+            }}
             placeholder="0"
             autoFocus={!existing}
             className="w-full bg-transparent border-0 p-0 text-[44px] leading-tight font-semibold tracking-[-0.02em] text-ink tabular-nums
@@ -136,7 +161,7 @@ export default function ExpenseForm({ settings, existing }: Props) {
       <fieldset>
         <legend className="label">Paid by</legend>
         <div className="flex flex-wrap gap-2" role="radiogroup">
-          {settings.paidBy.map(p => {
+          {paidByOptions.map(p => {
             const on = form.paidBy === p
             return (
               <button
@@ -261,11 +286,11 @@ export default function ExpenseForm({ settings, existing }: Props) {
       </button>
 
       {/* Tags */}
-      {settings.tags.length > 0 && (
+      {tagOptions.length > 0 && (
         <fieldset>
           <legend className="label">Tags <span className="normal-case tracking-normal text-mutedDim">· optional</span></legend>
           <div className="flex flex-wrap gap-2">
-            {settings.tags.map(tag => {
+            {tagOptions.map(tag => {
               const on = form.tags.includes(tag)
               return (
                 <button

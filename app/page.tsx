@@ -4,7 +4,7 @@ import { getExpensesWithVersion } from '@/lib/expenses'
 import LiveSync from '@/components/LiveSync'
 import { format, subMonths } from 'date-fns'
 import Dashboard from '@/components/Dashboard'
-import { filterByMonth } from '@/lib/date'
+import { currentMonthStr, filterByMonth, monthStart, resolveMonth } from '@/lib/date'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,19 +29,25 @@ export default async function DashboardPage({
   if (!session) redirect('/login')
 
   const { month } = await searchParams
-  const monthStr = month ?? format(new Date(), 'yyyy-MM')
-  const monthDate = new Date(`${monthStr}-01`)
+  const monthStr = resolveMonth(month)
+  const monthDate = monthStart(monthStr)
   const prevMonthStr = format(subMonths(monthDate, 1), 'yyyy-MM')
 
   const { data: all, version } = await getExpensesWithVersion()
   const thisMonthExpenses = filterByMonth(all, monthStr)
   const prevMonthExpenses = filterByMonth(all, prevMonthStr)
+  // Two more months of history feed the month-end forecast (current month only).
+  const isCurrentMonth = monthStr === currentMonthStr()
+  const olderMonthExpenses = isCurrentMonth
+    ? [2, 3].map(n => filterByMonth(all, format(subMonths(monthDate, n), 'yyyy-MM')))
+    : []
 
   return (
     <>
       <Dashboard
         thisMonthExpenses={thisMonthExpenses}
         prevMonthExpenses={prevMonthExpenses}
+        olderMonthExpenses={olderMonthExpenses}
         monthLabel={format(monthDate, 'MMMM yyyy')}
         monthStr={monthStr}
         userName={firstName(session.user?.name)}

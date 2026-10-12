@@ -6,6 +6,8 @@ const allowedEmails = (process.env.ALLOWED_EMAILS ?? '')
   .map(e => e.trim().toLowerCase())
   .filter(Boolean)
 
+const isAllowed = (email?: string | null) => !!email && allowedEmails.includes(email.toLowerCase())
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
@@ -15,13 +17,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     signIn({ user }) {
-      return allowedEmails.includes(user.email?.toLowerCase() ?? '')
+      return isAllowed(user.email)
+    },
+    // Re-checked on every session read, so removing someone from
+    // ALLOWED_EMAILS revokes their existing session too — not just new
+    // sign-ins. Returning null clears the session cookie.
+    jwt({ token }) {
+      return isAllowed(token.email) ? token : null
     },
     session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub
       }
       return session
+    },
+    // Used by middleware: without it Auth.js lets every request through.
+    authorized({ auth }) {
+      return !!auth?.user
     },
   },
   pages: {

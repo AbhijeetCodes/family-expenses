@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import type { Expense } from '@/lib/expenses'
 import { formatINR } from '@/lib/format'
+import { todayISO, yesterdayISO } from '@/lib/date'
 import { CategoryGlyph, colorForString } from './icons'
 
 type Props = {
@@ -62,9 +63,8 @@ function TransactionListInner({
     return out
   }, [expenses, groupByDay])
 
-  const now = new Date()
-  const todayStr     = format(now, 'yyyy-MM-dd')
-  const yesterdayStr = format(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1), 'yyyy-MM-dd')
+  const todayStr     = todayISO()
+  const yesterdayStr = yesterdayISO()
 
   const rowH = density === 'comfortable' ? 'min-h-[64px] py-3' : 'min-h-[60px] py-2.5'
 

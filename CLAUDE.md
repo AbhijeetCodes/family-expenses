@@ -60,7 +60,7 @@ Independent writes in the same action should run in `Promise.all` (see `createEx
 
 ### Auth
 
-`lib/auth.ts` configures Auth.js v5 with a Google provider. The `signIn` callback rejects any email not in `ALLOWED_EMAILS`. `middleware.ts` exports the auth handler directly, protecting every route except `/login`, `/api/auth/*`, and static assets.
+`lib/auth.ts` configures Auth.js v5 with a Google provider. The `signIn` callback rejects any email not in `ALLOWED_EMAILS`, and the `jwt` callback re-checks it on every session read (returns `null` → session cleared), so removing an email also revokes existing sessions. `middleware.ts` exports the auth handler directly; the `authorized` callback is what makes it redirect signed-out users (without it Auth.js lets everything through). Its matcher skips `/login`, `/api/auth/*`, Next internals and static files in `public/` (icons must load before sign-in).
 
 Every server action in `app/actions.ts` re-checks `auth()` server-side — do not rely solely on middleware.
 
@@ -72,7 +72,9 @@ Every server action in `app/actions.ts` re-checks `auth()` server-side — do no
 |---|---|---|---|---|---|---|---|---|---|
 | Month | Date | Expense Type | App | Mode of Payment | Name | Cost | Paid By | 1 time | Tags |
 
-Column A (`Month`, e.g. `2026-05`) is auto-computed from the date on write. `rowIndex` in the `Expense` type is the 1-based sheet row number and must stay accurate — deletes use `batchUpdate` with `deleteDimension` (not row-clearing) to prevent row shifts that would corrupt all subsequent `rowIndex` values.
+Column A (`Month`, e.g. `2026-05`) is auto-computed from the date on write. `rowIndex` in the `Expense` type is the 1-based sheet row number and must stay accurate — deletes use `batchUpdate` with `deleteDimension` (not row-clearing) to prevent row shifts that would corrupt all subsequent `rowIndex` values. Because rows can still shift underneath an open page (a row inserted/deleted in the sheet or by another family member), `updateExpense` / `deleteExpense` take the expense as the form loaded it and re-read that row first (`assertRowHolds`); on a mismatch they throw `RowConflictError`, which the actions return as `{ error }` (thrown messages are redacted in production).
+
+Settings writes are read-modify-write, so `addSettingValues` / `deleteSettingValue` run through a per-instance promise chain (`serialized`) — concurrent adds would otherwise pick the same empty cell.
 
 **`Settings` tab** — five columns (A–E): `ExpenseTypes`, `Apps`, `PaymentModes`, `PaidBy`, `Tags`. Each is an independent list; row 1 is the header. `lib/settings.ts` appends to the bottom on add, clears the cell (leaves a gap) on delete — `getSettings()` filters blanks so gaps are harmless.
 
@@ -104,7 +106,7 @@ Common classes in [app/globals.css](app/globals.css): `card`, `btn-primary`, `bt
 
 **Layout:** desktop uses a CSS grid `[1fr_400px]` — left column is the full-width Overview hero (the focal point) above a Category | Daily spending pair; right column is a sticky scrollable transaction sidebar. Mobile collapses to a single column; adding is the filled "Add" item in `BottomNav` (no FAB). No tabs. The header uses `relative` + `absolute left-1/2 -translate-x-1/2` to keep `<MonthNav>` dead-centred on all viewports; the desktop right cluster (History link, Settings icon, Add expense) uses `ml-auto` — on lg the BottomNav is hidden, so these links are the desktop navigation.
 
-**Filter/sort state** lives in the URL (not component `useState`) via the `useFilterParams` hook (`lib/useFilterParams.ts`). This means filters survive navigation between Dashboard and `/expenses`, are bookmarkable, and browser back/forward works. URL keys are terse (`t`, `a`, `m`, `p`, `g`, `one`, `sort`, `dir`, `date`, `q` = History search). `month` is owned by the server component and preserved untouched. Filter updates use `window.history.replaceState` (not `router.replace`): the server only reads `month`, so filter taps need no server round trip, and Next 15 syncs native history updates into `useSearchParams`. Replace (not push) so the back button still leaves the page.
+**Filter/sort state** lives in the URL (not component `useState`) via the `useFilterParams` hook (`lib/useFilterParams.ts`). This means filters survive navigation between Dashboard and `/expenses`, are bookmarkable, and browser back/forward works. URL keys are terse (`t`, `a`, `m`, `p`, `g`, `one`, `sort`, `dir`, `date`, `q` = History search); the excluded-value sets repeat the key per value (`t=Food&t=Rent`) so values may contain commas. Links between pages (MonthNav arrows, Dashboard ↔ History, BottomNav Home/History) build their href with `useCarriedHref()` so the query carries over — a bare `?month=` link would drop the filters. `month` is owned by the server component and preserved untouched. Filter updates use `window.history.replaceState` (not `router.replace`): the server only reads `month`, so filter taps need no server round trip, and Next 15 syncs native history updates into `useSearchParams`. Replace (not push) so the back button still leaves the page.
 
 - Five excluded-value Sets (`excludedTypes`, `excludedApps`, `excludedModes`, `excludedPaidBy`, `excludedTags`) — **inverted logic**: empty = show everything, non-empty = those values are hidden.
 - `excludeOneTime` — Dashboard default `true` (hides big one-offs), HistoryView default `false`. `activeFilterCount()` (in `FilterBar.tsx`) only counts it when it differs from the page default, so "Clear" never shows for the default state.
@@ -119,7 +121,7 @@ Common classes in [app/globals.css](app/globals.css): `card`, `btn-primary`, `bt
 
 All cards are wrapped in `React.memo` so toggling a filter only re-renders cards whose data props actually changed. The Dashboard passes pre-computed memoized data via `useMemo`, and handlers via `useCallback`, so referential identity is preserved across renders.
 
-- `OverviewCard` — the hero: month total, delta vs last month, and (current month only) a pace bar: spent → linear forecast `(total / day-of-month) * days-in-month`, with a tick at last month's full total. For the current month the delta compares against `compareTotal` = last month **up to the same day** (a full month vs 12 days always looks like a saving); for past months, last month's full total. Renders `PaidBySplit` in its right column.
+- `OverviewCard` — the hero: month total, delta vs last month, and (current month only) a pace bar: spent → month-end forecast from `forecastMonth()` in [lib/forecast.ts](lib/forecast.ts), with a tick at last month's full total. The forecast is spent so far + everyday spend (expenses < ₹2,500, this month's daily rate blended with the 3-month median) × days left + "bills" (≥ ₹2,500: rent, cook salary, metro passes) that usually land later in the month or are running late. One-time expenses are never projected. `app/page.tsx` passes two extra months (`olderMonthExpenses`) for this; history goes through the same filters. Don't go back to a straight-line `total / day × days-in-month` — rent on the 24th made it ~35% off. For the current month the delta compares against `compareTotal` = last month **up to the same day** (a full month vs 12 days always looks like a saving); for past months, last month's full total. Renders `PaidBySplit` in its right column.
 - `PaidBySplit` — stacked proportion bar + a row per person (no Recharts)
 - `CategoryCard` — wraps `CategoryBars`; a Share / vs-last-month segmented control switches the badge mode
 - `DailyTrendCard` — wraps `DailyTrend`; takes the zero-filled per-day series, `average`, `selectedDate`, and `onSelectDay?: (day: string) => void`
@@ -177,7 +179,7 @@ All pages are `dynamic = 'force-dynamic'`. The in-memory cache (see *Caching, li
 |---|---|---|
 | `lib/format.ts` | `formatINR(n, opts?)` | Indian-locale number formatting (no ₹ symbol — callers prepend it). Default: whole rupees. Pass `{ decimals: 2 }` for paise. Use this instead of `.toLocaleString` calls. |
 | `lib/utils.ts` | `unique(arr)` | Dedup + sort a `string[]`, filtering out empty strings. |
-| `lib/date.ts` | `filterByMonth(expenses, monthStr)` | Filter an `Expense[]` to rows whose `date` starts with `YYYY-MM`. Used in server components; avoids duplicating the prefix check. |
+| `lib/date.ts` | `filterByMonth`, `todayISO`, `yesterdayISO`, `currentMonthStr`, `resolveMonth`, `monthStart` | Month filtering, plus "today" / "this month" in `APP_TIME_ZONE` (Asia/Kolkata). Use these instead of `new Date()` / `format(new Date())`: the server runs in UTC, so a runtime clock gives the wrong month on the 1st before 05:30 IST and hydration mismatches. `resolveMonth` validates `?month=`; `monthStart` parses `YYYY-MM` as a local date (`new Date('YYYY-MM-01')` is UTC). |
 | `lib/types.ts` | `SortKey`, `SortDir` | Shared sort-direction types used by `useFilterParams`, `Dashboard`, and `HistoryView`. |
 | `lib/useFilterParams.ts` | `useFilterParams(defaults)` | URL-backed filter + sort state hook. Returns `FilterState & FilterActions`. Use in any client component that needs filter/sort UI. `month` param is never touched. |
 | `lib/useMediaQuery.ts` | `useMediaQuery(query)` | SSR-safe `window.matchMedia` wrapper: returns `false` on server, updates reactively via `addEventListener('change')` on the client. |

@@ -41,7 +41,7 @@ export default function SettingsSection({ column, label, hint, values: initial }
 
   function add() {
     const v = input.trim()
-    if (!v || values.some(x => x.toLowerCase() === v.toLowerCase())) return
+    if (pending || !v || values.some(x => x.toLowerCase() === v.toLowerCase())) return
     setInput('')
     mutate([...values, v], () => addSettingAction(column, v))
   }
@@ -94,7 +94,9 @@ export default function SettingsSection({ column, label, hint, values: initial }
         />
         <button
           type="submit"
-          disabled={!input.trim()}
+          // One write at a time: a second change made while the first is
+          // saving would be rolled back to the wrong list if either failed.
+          disabled={!input.trim() || pending}
           className="h-10 px-4 rounded-xl bg-surface2 text-ink text-sm font-semibold
                      transition-[background-color,transform] duration-150 ease-crisp
                      hover:bg-surface3 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"

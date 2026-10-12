@@ -11,7 +11,8 @@ import TransactionList from './TransactionList'
 import { SearchIcon, XIcon, ChevronDownIcon, ChevronLeftIcon } from './icons'
 import { unique } from '@/lib/utils'
 import { formatINR } from '@/lib/format'
-import { useFilterParams } from '@/lib/useFilterParams'
+import { useFilterParams, useCarriedHref } from '@/lib/useFilterParams'
+import { monthStart } from '@/lib/date'
 
 // History shows everything by default — it's the place to find any expense.
 const DEFAULT_EXCLUDE_ONE_TIME = false
@@ -27,6 +28,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
   // page persists when you cross between them. HistoryView defaults to
   // *not* hiding one-time expenses (the page is meant to show everything).
   const f = useFilterParams({ excludeOneTime: DEFAULT_EXCLUDE_ONE_TIME, sortKey: 'date', sortDir: 'desc' })
+  const carry = useCarriedHref()
   const {
     excludedTypes, excludedApps, excludedModes, excludedPaidBy, excludedTags,
     excludeOneTime, sortKey, sortDir, selectedDate, search,
@@ -85,7 +87,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
     })
   }, [filtered, sortKey, sortDir])
 
-  const monthDate     = new Date(`${monthStr}-01`)
+  const monthDate     = monthStart(monthStr)
   const monthName     = format(monthDate, 'MMMM')
   const monthFirstDay = `${monthStr}-01`
   const monthLastDay  = format(endOfMonth(monthDate), 'yyyy-MM-dd')
@@ -129,7 +131,7 @@ export default function HistoryView({ monthExpenses, monthLabel, monthStr }: Pro
       {/* Month, search and filters stay together as one sticky block. */}
       <div className="bg-base/90 backdrop-blur-md border-b border-line sticky top-0 z-30 pt-safe">
         <div className="relative h-14 flex items-center justify-center max-w-4xl mx-auto px-4">
-          <Link href={`/?month=${monthStr}`} className="icon-btn absolute left-2 hidden lg:inline-flex" aria-label="Back to dashboard">
+          <Link href={carry('/', { month: monthStr })} className="icon-btn absolute left-2 hidden lg:inline-flex" aria-label="Back to dashboard">
             <ChevronLeftIcon className="w-5 h-5" />
           </Link>
           <MonthNav basePath="/expenses" monthStr={monthStr} monthLabel={monthLabel} />

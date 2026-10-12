@@ -20,10 +20,27 @@ let _settingsCache: { data: SettingsData; expiresAt: number } | null = null
 // Coalesces concurrent cache-miss fetches: second caller awaits the first's
 // in-flight promise instead of firing a duplicate Sheets request.
 let _settingsInFlight: Promise<SettingsData> | null = null
+// Bumped on invalidation: a read that started before a write must not
+// re-cache the pre-write data when it lands.
+let _settingsGen = 0
 
 export function invalidateSettingsCache(): void {
+  _settingsGen++
   _settingsCache = null
+  _settingsInFlight = null
 }
+
+// Settings writes are read-modify-write (find the first empty cell, write
+// there). Two concurrent adds would pick the same cell and one value would
+// be lost, so writes on this instance run one at a time.
+let _writeChain: Promise<unknown> = Promise.resolve()
+function serialized<T>(fn: () => Promise<T>): Promise<T> {
+  const run = _writeChain.then(fn, fn)
+  _writeChain = run.catch(() => {})
+  return run
+}
+
+export const SETTINGS_COLUMNS = ['expenseTypes', 'apps', 'paymentModes', 'paidBy', 'tags'] as const
 
 // Column positions in Settings tab (0-indexed)
 const COLS = {
@@ -37,7 +54,8 @@ const COLS = {
 export async function getSettings(): Promise<SettingsData> {
   if (_settingsCache && Date.now() < _settingsCache.expiresAt) return _settingsCache.data
   if (_settingsInFlight) return _settingsInFlight
-  _settingsInFlight = (async () => {
+  const gen = _settingsGen
+  const inFlight: Promise<SettingsData> = (async () => {
     const sheets = getSheetsClient()
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
@@ -46,8 +64,11 @@ export async function getSettings(): Promise<SettingsData> {
     const rows = (res.data.values ?? []) as string[][]
     const extract = (colIdx: number) =>
       rows.slice(1)
-        .map(r => r[colIdx] ?? '')
+        .map(r => (r[colIdx] ?? '').trim())
         .filter(Boolean)
+        // Case-insensitive dedupe (keeps the first spelling): duplicates
+        // typed into the sheet would otherwise collide as React keys.
+        .filter((v, i, all) => all.findIndex(x => x.toLowerCase() === v.toLowerCase()) === i)
         .sort((a, b) => a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase()))
 
     const data: SettingsData = {
@@ -57,10 +78,11 @@ export async function getSettings(): Promise<SettingsData> {
       paidBy: extract(COLS.paidBy),
       tags: extract(COLS.tags),
     }
-    _settingsCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
+    if (gen === _settingsGen) _settingsCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
     return data
-  })().finally(() => { _settingsInFlight = null })
-  return _settingsInFlight
+  })().finally(() => { if (_settingsInFlight === inFlight) _settingsInFlight = null })
+  _settingsInFlight = inFlight
+  return inFlight
 }
 
 // Internal: read the Settings tab as a 2D array (preserves sheet row order so we
@@ -107,7 +129,13 @@ export async function addSettingValue(
  * - Case-insensitive dedup against existing values.
  * - Handles same-call duplicates (e.g. two entries adding "Coffee" to the same column).
  */
-export async function addSettingValues(
+export function addSettingValues(
+  entries: { column: keyof typeof COLS; value: string }[]
+): Promise<void> {
+  return serialized(() => addSettingValuesNow(entries))
+}
+
+async function addSettingValuesNow(
   entries: { column: keyof typeof COLS; value: string }[]
 ): Promise<void> {
   const clean = entries
@@ -154,7 +182,14 @@ export async function addSettingValues(
   })
 }
 
-export async function deleteSettingValue(
+export function deleteSettingValue(
+  column: keyof typeof COLS,
+  value: string
+): Promise<void> {
+  return serialized(() => deleteSettingValueNow(column, value))
+}
+
+async function deleteSettingValueNow(
   column: keyof typeof COLS,
   value: string
 ): Promise<void> {
@@ -168,7 +203,7 @@ export async function deleteSettingValue(
   const colLetter = columnLetter(colIdx)
 
   for (let i = 1; i < rows.length; i++) {
-    if ((rows[i][colIdx] ?? '').toLowerCase() === value.toLowerCase()) {
+    if ((rows[i]?.[colIdx] ?? '').trim().toLowerCase() === value.trim().toLowerCase()) {
       await sheets.spreadsheets.values.clear({
         spreadsheetId: SHEET_ID,
         range: `${SETTINGS_TAB}!${colLetter}${i + 1}`,

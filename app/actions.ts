@@ -1,8 +1,8 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { addExpense, updateExpense, deleteExpense, getExpensesVersion, type Expense } from '@/lib/expenses'
-import { addSettingValue, addSettingValues, deleteSettingValue, invalidateSettingsCache, type SettingsData } from '@/lib/settings'
+import { addExpense, updateExpense, deleteExpense, getExpensesVersion, RowConflictError, type Expense } from '@/lib/expenses'
+import { addSettingValue, addSettingValues, deleteSettingValue, invalidateSettingsCache, SETTINGS_COLUMNS, type SettingsData } from '@/lib/settings'
 import { redirect } from 'next/navigation'
 
 async function requireAuth() {
@@ -28,14 +28,22 @@ function validateExpenseData(data: Omit<Expense, 'rowIndex'>) {
 /**
  * Cheap, sync check: rowIndex must be a positive integer >= 2 (row 1 is the
  * header). Prevents an authenticated user from passing 1 (overwriting the
- * header) or a negative/garbage value. We deliberately don't re-fetch the
- * whole sheet to confirm the row exists: all ALLOWED_EMAILS users are
- * trusted family members sharing one sheet, and the underlying Sheets API
- * surfaces real out-of-range errors on delete.
+ * header) or a negative/garbage value. That the row still holds the expense
+ * the user opened is checked against the sheet by updateExpense /
+ * deleteExpense themselves.
  */
 function assertValidRowIndex(rowIndex: number): void {
   if (!Number.isInteger(rowIndex) || rowIndex < 2) throw new Error('Invalid rowIndex')
 }
+
+/**
+ * Expected failures come back as values: Next.js replaces thrown error
+ * messages with a generic one in production, so the form couldn't say why.
+ */
+export type ActionResult = { error?: string }
+
+const CONFLICT_MESSAGE =
+  'This expense was changed or moved in the sheet since you opened it. Go back and open it again.'
 
 // Auto-promote any freeform Type / App / Mode the user typed that wasn't
 // already a known datalist value, so it appears as a suggestion next time.
@@ -70,27 +78,44 @@ export async function createExpenseAction(
   if (hasNewLookups) invalidateSettingsCache()
 }
 
+/** `original` is the expense as the form loaded it — used to detect row shifts. */
 export async function updateExpenseAction(
   rowIndex: number,
+  original: Omit<Expense, 'rowIndex'>,
   data: Omit<Expense, 'rowIndex'>,
   newLookups: NewLookups = {},
-) {
+): Promise<ActionResult> {
   await requireAuth()
   validateExpenseData(data)
   assertValidRowIndex(rowIndex)
-  const hasNewLookups = !!(newLookups.expenseType || newLookups.app || newLookups.paymentMode)
-  await Promise.all([
-    updateExpense(rowIndex, data),
-    hasNewLookups ? promoteLookupValues(newLookups) : Promise.resolve(),
-  ])
+  // Check the row before promoting lookups, so a conflict writes nothing.
+  try {
+    await updateExpense(rowIndex, data, original)
+  } catch (err) {
+    if (err instanceof RowConflictError) return { error: CONFLICT_MESSAGE }
+    throw err
+  }
   // addExpense / updateExpense patch the expenses cache in place themselves.
-  if (hasNewLookups) invalidateSettingsCache()
+  if (newLookups.expenseType || newLookups.app || newLookups.paymentMode) {
+    await promoteLookupValues(newLookups)
+    invalidateSettingsCache()
+  }
+  return {}
 }
 
-export async function deleteExpenseAction(rowIndex: number) {
+export async function deleteExpenseAction(
+  rowIndex: number,
+  original: Omit<Expense, 'rowIndex'>,
+): Promise<ActionResult> {
   await requireAuth()
   assertValidRowIndex(rowIndex)
-  await deleteExpense(rowIndex)  // patches the expenses cache in place
+  try {
+    await deleteExpense(rowIndex, original)  // patches the expenses cache in place
+  } catch (err) {
+    if (err instanceof RowConflictError) return { error: CONFLICT_MESSAGE }
+    throw err
+  }
+  return {}
 }
 
 /**
@@ -104,14 +129,22 @@ export async function getExpensesVersionAction(): Promise<string> {
   return getExpensesVersion()
 }
 
+/** Server actions are public endpoints — don't trust the client's types. */
+function validateSetting(column: keyof SettingsData, value: string) {
+  if (!SETTINGS_COLUMNS.includes(column)) throw new Error('Invalid settings column')
+  if (typeof value !== 'string' || !value.trim() || value.length > 200) throw new Error('Invalid value')
+}
+
 export async function addSettingAction(column: keyof SettingsData, value: string) {
   await requireAuth()
+  validateSetting(column, value)
   await addSettingValue(column, value)
   invalidateSettingsCache()
 }
 
 export async function deleteSettingAction(column: keyof SettingsData, value: string) {
   await requireAuth()
+  validateSetting(column, value)
   await deleteSettingValue(column, value)
   invalidateSettingsCache()
 }

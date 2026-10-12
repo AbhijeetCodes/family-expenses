@@ -13,8 +13,8 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
   if (!session) redirect('/login')
 
   const { id } = await params
-  const rowIndex = parseInt(id)
-  if (isNaN(rowIndex)) notFound()
+  const rowIndex = Number(id)
+  if (!Number.isInteger(rowIndex) || rowIndex < 2) notFound()
 
   const [all, settings] = await Promise.all([getAllExpenses(), getSettings()])
   const expense = all.find(e => e.rowIndex === rowIndex)
