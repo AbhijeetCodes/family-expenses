@@ -63,15 +63,17 @@ async function promoteLookupValues(values: NewLookups) {
   await addSettingValues(entries)
 }
 
+/** `isRetry`: the previous attempt at this submit failed with no answer — see addExpense. */
 export async function createExpenseAction(
   data: Omit<Expense, 'rowIndex'>,
   newLookups: NewLookups = {},
+  isRetry = false,
 ) {
   await requireAuth()
   validateExpenseData(data)
   const hasNewLookups = !!(newLookups.expenseType || newLookups.app || newLookups.paymentMode)
   await Promise.all([
-    addExpense(data),
+    addExpense(data, { isRetry: isRetry === true }),
     hasNewLookups ? promoteLookupValues(newLookups) : Promise.resolve(),
   ])
   // addExpense / updateExpense patch the expenses cache in place themselves.

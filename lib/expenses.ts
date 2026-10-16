@@ -240,7 +240,32 @@ function patchCache(fn: (data: Expense[]) => Expense[]) {
   _expensesCache = { data, version: versionOf(data), fetchedAt: c.fetchedAt, stale: true }
 }
 
-export async function addExpense(e: Omit<Expense, 'rowIndex'>): Promise<void> {
+/** All written fields match (after the same normalisation the write applies). */
+function identicalExpense(a: Omit<Expense, 'rowIndex'>, b: Omit<Expense, 'rowIndex'>): boolean {
+  return sameExpense(a, b) &&
+    a.expenseType === b.expenseType &&
+    a.app === b.app &&
+    a.paymentMode === b.paymentMode &&
+    a.oneTime === b.oneTime &&
+    a.tags.join(',') === b.tags.join(',')
+}
+
+// How far up from the bottom of the sheet a retried add looks for its copy.
+const RETRY_LOOKBACK_ROWS = 10
+
+/**
+ * `isRetry`: the client's previous attempt at this same submit failed without
+ * an answer (e.g. the connection dropped), so its append may have landed
+ * anyway. Re-read the sheet and skip the append if an identical row is among
+ * the last few — appends go to the bottom. Only retries are checked: two
+ * identical expenses on purpose (two metro tickets) are normal.
+ */
+export async function addExpense(e: Omit<Expense, 'rowIndex'>, { isRetry = false } = {}): Promise<void> {
+  if (isRetry) {
+    const { data } = await fetchExpenses()
+    const row = toRow(e, 0)
+    if (data.slice(-RETRY_LOOKBACK_ROWS).some(x => identicalExpense(x, row))) return
+  }
   const sheets = getSheetsClient()
   const res = await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,

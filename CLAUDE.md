@@ -30,11 +30,11 @@ All reads and writes go through **server components / server actions only** — 
 ```
 Browser → Next.js Server Action (app/actions.ts)
               → lib/expenses.ts or lib/settings.ts
-                  → lib/sheets.ts (googleapis service account client)
+                  → lib/sheets.ts (@googleapis/sheets service account client)
                       → Google Sheets API
 ```
 
-`getSheetsClient()` and `getTabSheetId()` in [lib/sheets.ts](lib/sheets.ts) are **module-scope singletons** — the `GoogleAuth` JWT client and the per-tab `sheetId` lookup are cached for the lifetime of the serverless instance. Never call `sheets.spreadsheets.get()` just to look up a tab's `sheetId`; use `getTabSheetId(TAB_NAME)`.
+`getSheetsClient()` and `getTabSheetId()` in [lib/sheets.ts](lib/sheets.ts) are **module-scope singletons** — the `GoogleAuth` JWT client and the per-tab `sheetId` lookup are cached for the lifetime of the serverless instance. Never call `sheets.spreadsheets.get()` just to look up a tab's `sheetId`; use `getTabSheetId(TAB_NAME)`. Use the Sheets-only `@googleapis/sheets` package, not `googleapis`: the full package bundles every Google API (~200 MB) and takes ~10× longer to load on a cold start.
 
 ### Caching, live sync & write invariants
 
@@ -49,6 +49,8 @@ Concurrent reads coalesce onto one in-flight `Promise`, but only if no write has
 **Live sync (sheet → app):** each cache entry carries a `version` (FNV hash of all rows). `/` and `/expenses` render `<LiveSync version={…}>` ([components/LiveSync.tsx](components/LiveSync.tsx)), which calls `getExpensesVersionAction()` on mount, every 10 s while visible, and on focus/online. That action forces a read ≤3 s old; if the version differs, the client calls `router.refresh()`. This is how rows typed directly into the sheet appear in the app.
 
 **Write invariant (app → sheet):** `addExpense` / `updateExpense` / `deleteExpense` **patch the cache in place** (`patchCache`), so the page you land on after saving renders from memory with no Sheets read. Delete shifts later `rowIndex` values down by one, mirroring the sheet. Any new function that writes the `Expenses` tab must call `patchCache` or `invalidateExpensesCache()`.
+
+**Retry-safe adds:** appends aren't idempotent, so if a create fails with no answer (connection dropped), `ExpenseForm` sets `addMayHaveLanded` and its next submit passes `isRetry` to `createExpenseAction`. `addExpense` then re-reads the sheet and skips the append if an identical row is in the last 10. Only retries are checked — identical expenses entered on purpose (two metro tickets) are normal.
 
 `getSettings()` keeps a plain 60 s TTL (`SETTINGS_CACHE_TTL_MS`). Writes to the `Settings` tab (including `promoteLookupValues`) → call `invalidateSettingsCache()` from [lib/settings.ts](lib/settings.ts).
 
@@ -93,6 +95,8 @@ Defined in [tailwind.config.ts](tailwind.config.ts). Use these semantic tokens �
 | `accent` / `accent-2` | `#00D689` / `#00B575` | Primary CTA, brand, selection, focus ring — nothing decorative |
 | `ink` / `muted` / `mutedDim` / `faint` | `#FFFFFF` / `#94A3B8` / `#64748B` / `#475066` | Primary / secondary / tertiary / disabled-placeholder text |
 | `up` / `down` | `#22C55E` / `#EF4444` | Spend deltas only (less spent / more spent) and destructive actions. Filters are **not** red |
+
+Text inputs must be **16px** (`text-[16px]`): anything smaller makes iOS Safari zoom in on focus, and the viewport deliberately has no `maximumScale` so pinch-zoom works. Don't write `text-base` for 16px — `base` is a colour token, so it also turns the text navy.
 
 Depth is one strategy: a 1px translucent ring (`shadow-card`, `shadow-popover`), no drop shadows on cards. Motion: name the properties (`transition-[background-color,transform]`, never `transition-all`), `ease-crisp` (`cubic-bezier(0.23,1,0.32,1)`), ≤300 ms, `active:scale-[0.97]` press feedback.
 

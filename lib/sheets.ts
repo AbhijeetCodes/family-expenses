@@ -1,17 +1,19 @@
-import { google, sheets_v4 } from 'googleapis'
+// The Sheets-only client: the full `googleapis` package bundles every Google
+// API (~200 MB) and slows serverless cold starts.
+import { auth, sheets, sheets_v4 } from '@googleapis/sheets'
 
 let _sheets: sheets_v4.Sheets | null = null
 
 export function getSheetsClient(): sheets_v4.Sheets {
   if (_sheets) return _sheets
-  const auth = new google.auth.GoogleAuth({
+  const googleAuth = new auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, '\n'),
     },
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   })
-  _sheets = google.sheets({ version: 'v4', auth })
+  _sheets = sheets({ version: 'v4', auth: googleAuth })
   return _sheets
 }
 

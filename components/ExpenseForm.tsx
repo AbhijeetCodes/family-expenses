@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Expense } from '@/lib/expenses'
 import type { SettingsData } from '@/lib/settings'
@@ -46,6 +46,9 @@ export default function ExpenseForm({ settings, existing }: Props) {
   const [error, setError] = useState('')
   const [pending, startTransition] = useTransition()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  // Set when an add failed with no answer: it may have landed anyway, so the
+  // retry asks the server to check for it first instead of adding a duplicate.
+  const addMayHaveLanded = useRef(false)
   const router = useRouter()
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -85,13 +88,14 @@ export default function ExpenseForm({ settings, existing }: Props) {
           const res = await updateExpenseAction(rowIndex, original, form, newLookups)
           if (res.error) return setError(res.error)
         } else {
-          await createExpenseAction(form, newLookups)
+          await createExpenseAction(form, newLookups, addMayHaveLanded.current)
         }
         // refresh() first: it clears the client router cache, so the push
         // below can't land on a cached (pre-save) dashboard.
         router.refresh()
         router.push('/')
       } catch (err) {
+        if (!existing) addMayHaveLanded.current = true
         console.error('Save failed', err)
         setError('Couldn’t save. Check your connection and try again.')
       }
@@ -153,7 +157,7 @@ export default function ExpenseForm({ settings, existing }: Props) {
             value={form.name}
             onChange={e => set('name', e.target.value)}
             placeholder="What was it for? Dinner, groceries, electricity bill…"
-            className="w-full h-12 bg-transparent border-0 px-4 text-[15px] text-ink placeholder:text-faint focus:ring-0"
+            className="w-full h-12 bg-transparent border-0 px-4 text-[16px] text-ink placeholder:text-faint focus:ring-0"
           />
         </div>
       </div>

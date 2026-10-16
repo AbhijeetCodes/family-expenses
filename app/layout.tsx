@@ -25,7 +25,8 @@ export const viewport: Viewport = {
   themeColor: '#10121D',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // No maximumScale: pinch-zoom stays available. Inputs use 16px text, which
+  // is what stops iOS Safari from zooming in when one is focused.
   // Draw under the iOS status bar (statusBarStyle is black-translucent);
   // sticky headers and BottomNav pad themselves with the safe-area insets.
   viewportFit: 'cover',
