@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import type { Expense } from '@/lib/expenses'
 import type { SettingsData } from '@/lib/settings'
 import { createExpenseAction, updateExpenseAction, deleteExpenseAction } from '@/app/actions'
-import { CheckIcon } from './icons'
+import { format, parseISO, isValid } from 'date-fns'
+import { CheckIcon, ChevronDownIcon } from './icons'
 import { todayISO, yesterdayISO } from '@/lib/date'
 
 type Props = {
@@ -215,14 +216,23 @@ export default function ExpenseForm({ settings, existing }: Props) {
             ))}
           </div>
         </div>
-        <input
-          id="date"
-          type="date"
-          value={form.date}
-          onChange={e => set('date', e.target.value)}
-          className="input-field tabular-nums"
-          required
-        />
+        {/* Native date inputs render in the device locale (MM/DD/YYYY on en-US), so show our own
+            unambiguous DD-MMM-YY label and lay the invisible native picker over it. */}
+        <div className="input-field relative flex items-center justify-between focus-within:ring-2 focus-within:ring-accent/70">
+          <span className={`tabular-nums ${form.date ? '' : 'text-faint'}`}>
+            {form.date && isValid(parseISO(form.date)) ? format(parseISO(form.date), 'dd-MMM-yy') : 'Pick a date'}
+          </span>
+          <ChevronDownIcon className="w-4 h-4 text-muted" />
+          <input
+            id="date"
+            type="date"
+            value={form.date}
+            onChange={e => set('date', e.target.value)}
+            onClick={e => { try { e.currentTarget.showPicker() } catch {} }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            required
+          />
+        </div>
       </div>
 
       {/* Optional details */}
