@@ -11,7 +11,7 @@ npm run lint        # ESLint
 npm run type-check  # tsc --noEmit only (faster than a full build)
 ```
 
-No test suite.
+No test suite. Planned work and known loose ends live in [docs/BACKLOG.md](docs/BACKLOG.md).
 
 After any change: `git add -A && git commit -m "..." && git push` — Vercel auto-deploys from `main` (~2 min). Production URL: `https://family-expenses-ten.vercel.app`. GitHub repo: `https://github.com/AbhijeetCodes/family-expenses` (`gh` CLI is not installed — create PRs by pushing the branch and opening the GitHub URL).
 
@@ -64,7 +64,7 @@ Independent writes in the same action should run in `Promise.all` (see `createEx
 
 `lib/auth.ts` configures Auth.js v5 with a Google provider. The `signIn` callback rejects any email not in `ALLOWED_EMAILS`, and the `jwt` callback re-checks it on every session read (returns `null` → session cleared), so removing an email also revokes existing sessions. `middleware.ts` exports the auth handler directly; the `authorized` callback is what makes it redirect signed-out users (without it Auth.js lets everything through). Its matcher skips `/login`, `/api/auth/*`, Next internals and static files in `public/` (icons must load before sign-in).
 
-Every server action in `app/actions.ts` re-checks `auth()` server-side — do not rely solely on middleware.
+Every server action in `app/actions.ts` re-checks `auth()` server-side — do not rely solely on middleware. Check `session?.user`, never a bare `if (!session)`: Auth.js can return a session object populated with an error, which a bare check lets through.
 
 ### Google Sheets structure
 

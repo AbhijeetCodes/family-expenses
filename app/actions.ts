@@ -5,9 +5,11 @@ import { addExpense, updateExpense, deleteExpense, getExpensesVersion, RowConfli
 import { addSettingValue, addSettingValues, deleteSettingValue, invalidateSettingsCache, SETTINGS_COLUMNS, type SettingsData } from '@/lib/settings'
 import { redirect } from 'next/navigation'
 
+// Check for a user, not just a session object: Auth.js can hand back a
+// session populated with an error, which a bare `if (!session)` lets through.
 async function requireAuth() {
   const session = await auth()
-  if (!session) redirect('/login')
+  if (!session?.user) redirect('/login')
   return session
 }
 

@@ -14,7 +14,7 @@ export default async function ExpensesPage({
   searchParams: Promise<{ month?: string }>
 }) {
   const session = await auth()
-  if (!session) redirect('/login')
+  if (!session?.user) redirect('/login')
 
   const { month } = await searchParams
   const monthStr = resolveMonth(month)

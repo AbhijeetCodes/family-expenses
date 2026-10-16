@@ -18,7 +18,7 @@ const SECTIONS: { key: keyof SettingsData; label: string; hint: string }[] = [
 
 export default async function SettingsPage() {
   const session = await auth()
-  if (!session) redirect('/login')
+  if (!session?.user) redirect('/login')
 
   const settings = await getSettings()
 

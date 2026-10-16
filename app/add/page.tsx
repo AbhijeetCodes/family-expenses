@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AddPage() {
   const session = await auth()
-  if (!session) redirect('/login')
+  if (!session?.user) redirect('/login')
 
   const settings = await getSettings()
 

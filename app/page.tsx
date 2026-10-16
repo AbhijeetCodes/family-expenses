@@ -26,7 +26,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ month?: string }>
 }) {
   const session = await auth()
-  if (!session) redirect('/login')
+  if (!session?.user) redirect('/login')
 
   const { month } = await searchParams
   const monthStr = resolveMonth(month)

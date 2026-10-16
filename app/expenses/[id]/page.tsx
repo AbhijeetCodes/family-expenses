@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session) redirect('/login')
+  if (!session?.user) redirect('/login')
 
   const { id } = await params
   const rowIndex = Number(id)
